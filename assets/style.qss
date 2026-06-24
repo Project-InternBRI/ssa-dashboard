@@ -1,0 +1,258 @@
+/* ============================================
+   SSA Dashboard — Global Stylesheet
+   Bank BRI | AH Gunsar Jakarta Region
+   ============================================ */
+
+/* 1. Global Font & Base */
+QMainWindow {
+    font-family: "SF Pro Display", "Helvetica Neue", "Arial", sans-serif;
+    font-size: 13px;
+    color: #1E293B;
+    background-color: #F0F4F8;
+}
+
+QWidget {
+    font-family: "SF Pro Display", "Helvetica Neue", "Arial", sans-serif;
+    font-size: 13px;
+    color: #1E293B;
+}
+
+/* 2. Sidebar */
+QFrame#sidebar {
+    background-color: #0F2A4A;
+}
+
+/* 3. Header */
+QFrame#headerBar {
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #E8EDF2;
+}
+
+/* 4. Upload area */
+QFrame#uploadArea {
+    background-color: #F8FBFF;
+    border: 2px dashed #C4D4E8;
+    border-radius: 14px;
+}
+QFrame#uploadArea[dragActive="true"] {
+    background-color: #EFF6FF;
+    border: 2px solid #2563EB;
+}
+
+/* 5. Card frames (upload file card) */
+QFrame#cardFrame {
+    background-color: #FFFFFF;
+    border: 1px solid #E2EAF4;
+    border-radius: 12px;
+}
+
+/* 6. Buttons */
+QPushButton#btnGenerate {
+    background-color: #2563EB;
+    color: white;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 10px 22px;
+    border: none;
+    font-size: 13px;
+}
+QPushButton#btnGenerate:hover {
+    background-color: #1D4ED8;
+}
+QPushButton#btnGenerate:pressed {
+    background-color: #1E40AF;
+}
+QPushButton#btnGenerate:disabled {
+    background-color: #93C5FD;
+    color: rgba(255,255,255,0.7);
+}
+
+QPushButton#btnExport {
+    background-color: #059669;
+    color: white;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 10px 22px;
+    border: none;
+    font-size: 13px;
+}
+QPushButton#btnExport:hover {
+    background-color: #047857;
+}
+
+QPushButton#btnSecondary {
+    background-color: #FFFFFF;
+    color: #374151;
+    border: 1px solid #D1DCF0;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+}
+QPushButton#btnSecondary:hover {
+    background-color: #F1F5F9;
+    border: 1px solid #B8C9E4;
+}
+
+/* 7. Tabs */
+QTabWidget::pane {
+    border: none;
+    background: #FFFFFF;
+}
+QTabBar::tab {
+    background: transparent;
+    color: #64748B;
+    padding: 10px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 13px;
+    font-weight: 500;
+}
+QTabBar::tab:selected {
+    color: #2563EB;
+    font-weight: 600;
+    border-bottom: 2px solid #2563EB;
+}
+QTabBar::tab:hover:!selected {
+    color: #334155;
+}
+
+/* 8. Table */
+QTableWidget {
+    background-color: #FFFFFF;
+    alternate-background-color: #F8FAFC;
+    gridline-color: #EEF2F8;
+    border: none;
+    selection-background-color: #DBEAFE;
+    selection-color: #1E293B;
+    font-size: 13px;
+}
+QTableWidget::item {
+    padding: 6px 10px;
+    border-bottom: 1px solid #F1F5F9;
+}
+QTableWidget::item:hover {
+    background-color: #F0F7FF;
+}
+QHeaderView::section {
+    background-color: #0F2A4A;
+    color: white;
+    font-weight: 600;
+    padding: 10px 10px;
+    border: none;
+    border-right: 1px solid #1A3A5C;
+    font-size: 12px;
+    letter-spacing: 0.3px;
+}
+
+/* 9. Progress */
+QProgressBar {
+    background-color: #E8EDF8;
+    border: none;
+    border-radius: 4px;
+    max-height: 6px;
+    text-align: center;
+    color: transparent;
+}
+QProgressBar::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2563EB, stop:1 #60A5FA);
+    border-radius: 4px;
+}
+
+/* 10. Scrollbar */
+QScrollBar:vertical {
+    border: none;
+    background: transparent;
+    width: 7px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: #D1DCF0;
+    min-height: 24px;
+    border-radius: 3px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #A0B4D0;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar:horizontal {
+    border: none;
+    background: transparent;
+    height: 7px;
+    margin: 0;
+}
+QScrollBar::handle:horizontal {
+    background: #D1DCF0;
+    min-width: 24px;
+    border-radius: 3px;
+}
+QScrollBar::handle:horizontal:hover { background: #A0B4D0; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+
+/* 11. ComboBox */
+QComboBox {
+    background-color: #FFFFFF;
+    border: 1px solid #D1DCF0;
+    border-radius: 8px;
+    padding: 7px 12px;
+    color: #1E293B;
+    font-size: 13px;
+    selection-background-color: #DBEAFE;
+}
+QComboBox:hover {
+    border: 1px solid #93C5FD;
+}
+QComboBox:focus {
+    border: 1px solid #2563EB;
+    outline: none;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 28px;
+}
+QComboBox::down-arrow {
+    width: 12px;
+    height: 12px;
+}
+QComboBox QAbstractItemView {
+    background-color: white;
+    border: 1px solid #D1DCF0;
+    border-radius: 8px;
+    selection-background-color: #DBEAFE;
+    selection-color: #1E293B;
+    padding: 4px;
+    outline: none;
+}
+QComboBox QAbstractItemView::item {
+    padding: 8px 12px;
+    border-radius: 4px;
+    min-height: 28px;
+}
+
+/* 12. LineEdit */
+QLineEdit {
+    background-color: #FFFFFF;
+    border: 1px solid #D1DCF0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #1E293B;
+    font-size: 13px;
+}
+QLineEdit:focus {
+    border: 1px solid #2563EB;
+}
+
+/* 13. MessageBox */
+QMessageBox {
+    background-color: #FFFFFF;
+}
+QMessageBox QPushButton {
+    background-color: #FFFFFF;
+    color: #1E293B;
+    border: 1px solid #D1DCF0;
+    border-radius: 8px;
+    padding: 6px 16px;
+    min-width: 64px;
+}
+QMessageBox QPushButton:hover {
+    background-color: #F1F5F9;
+}
