@@ -2,34 +2,34 @@
 toast_notification.py — Sistem toast notification di pojok kanan bawah.
 Mendukung tipe: success, error, info, warning.
 Stack otomatis jika ada beberapa toast sekaligus.
-"""
-from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
-                               QPushButton, QGraphicsOpacityEffect,
-                               QApplication)
-from PySide6.QtCore import (Qt, QTimer, QPropertyAnimation, QEasingCurve,
-                            QPoint, QRect)
-from PySide6.QtGui import QCursor
 
+Perbaikan: semua toast disimpan dalam self._toasts = [] agar tidak 
+           dihapus garbage collector sebelum animasi selesai.
+"""
+from PySide6.QtWidgets import (QWidget, QHBoxLayout, QLabel, QPushButton,
+                               QGraphicsOpacityEffect, QApplication)
+from PySide6.QtCore import (Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint)
+from PySide6.QtGui import QCursor
 
 _STYLES = {
     "success": {
         "bg": "#ECFDF5", "border": "#6EE7B7",
-        "icon": "✓",    "icon_bg": "#059669",
+        "icon": "✓",     "icon_bg": "#059669",
         "text": "#065F46",
     },
     "error": {
         "bg": "#FEF2F2", "border": "#FCA5A5",
-        "icon": "✕",    "icon_bg": "#DC2626",
+        "icon": "✕",     "icon_bg": "#DC2626",
         "text": "#991B1B",
     },
     "info": {
         "bg": "#EFF6FF", "border": "#93C5FD",
-        "icon": "i",    "icon_bg": "#2563EB",
+        "icon": "i",     "icon_bg": "#2563EB",
         "text": "#1E40AF",
     },
     "warning": {
         "bg": "#FFFBEB", "border": "#FCD34D",
-        "icon": "!",    "icon_bg": "#D97706",
+        "icon": "!",     "icon_bg": "#D97706",
         "text": "#92400E",
     },
 }
@@ -40,25 +40,25 @@ class ToastNotification(QWidget):
 
     def __init__(self, message: str, toast_type: str = "info",
                  duration_ms: int = 4000, parent: QWidget | None = None):
-        super().__init__(parent,
-                         Qt.WindowType.FramelessWindowHint |
-                         Qt.WindowType.WindowStaysOnTopHint |
-                         Qt.WindowType.Tool)
+        super().__init__(
+            parent,
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setFixedWidth(400)
+
+        self._duration_ms = duration_ms
+        self._dismiss_timer: QTimer | None = None
 
         style = _STYLES.get(toast_type, _STYLES["info"])
         self._build(message, style)
         self.adjustSize()
 
-        if duration_ms > 0:
-            QTimer.singleShot(duration_ms, self.dismiss)
-
-    # ── UI ─────────────────────────────────────────────────────
-
+    # ── BUILD UI ────────────────────────────────────────────────
     def _build(self, message: str, s: dict) -> None:
-        """Bangun tampilan toast."""
         box = QWidget(self)
         box.setStyleSheet(f"""
             QWidget {{
@@ -69,7 +69,7 @@ class ToastNotification(QWidget):
         """)
 
         root = QHBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 6)   # 6px shadow space di bawah
+        root.setContentsMargins(0, 0, 0, 6)
         root.addWidget(box)
 
         lay = QHBoxLayout(box)
@@ -92,9 +92,9 @@ class ToastNotification(QWidget):
         """)
 
         # Message
-        msg = QLabel(message)
-        msg.setWordWrap(True)
-        msg.setStyleSheet(f"""
+        msg_lbl = QLabel(message)
+        msg_lbl.setWordWrap(True)
+        msg_lbl.setStyleSheet(f"""
             QLabel {{
                 color: {s['text']};
                 font-size: 13px;
@@ -120,11 +120,10 @@ class ToastNotification(QWidget):
         close.clicked.connect(self.dismiss)
 
         lay.addWidget(ic)
-        lay.addWidget(msg, 1)
+        lay.addWidget(msg_lbl, 1)
         lay.addWidget(close)
 
-    # ── Show / Dismiss ─────────────────────────────────────────
-
+    # ── SHOW / DISMISS ──────────────────────────────────────────
     def show_animated(self) -> None:
         """Tampilkan toast dengan animasi slide-up dari bawah."""
         self.show()
@@ -139,8 +138,17 @@ class ToastNotification(QWidget):
         self._anim_pos.setEasingCurve(QEasingCurve.Type.OutCubic)
         self._anim_pos.start()
 
+        if self._duration_ms > 0:
+            self._dismiss_timer = QTimer(self)
+            self._dismiss_timer.setSingleShot(True)
+            self._dismiss_timer.timeout.connect(self.dismiss)
+            self._dismiss_timer.start(self._duration_ms)
+
     def dismiss(self) -> None:
         """Sembunyikan toast dengan animasi fade-out."""
+        if self._dismiss_timer:
+            self._dismiss_timer.stop()
+
         eff = QGraphicsOpacityEffect(self)
         self.setGraphicsEffect(eff)
         self._anim_fade = QPropertyAnimation(eff, b"opacity")
@@ -156,6 +164,8 @@ class ToastManager:
     """
     Kelola stack toast di pojok kanan bawah parent window.
 
+    Semua toast yang aktif disimpan dalam _active agar tidak di-GC.
+
     Usage:
         ToastManager.show(parent_widget, "Berhasil!", "success")
     """
@@ -165,14 +175,14 @@ class ToastManager:
     def show(cls, parent: QWidget, message: str,
              toast_type: str = "info", duration_ms: int = 4000) -> None:
         """Tampilkan toast baru. Stack ke atas jika ada yang aktif."""
-        # Bersihkan referensi yang sudah ditutup
+        # Bersihkan toast yang sudah tertutup
         cls._active = [t for t in cls._active if t.isVisible()]
 
         toast = ToastNotification(message, toast_type, duration_ms)
 
-        # Posisi dasar: pojok kanan bawah parent (atau layar)
+        # Posisi dasar: pojok kanan bawah parent
         if parent and parent.isVisible():
-            geo = parent.geometry()
+            geo    = parent.geometry()
             base_x = geo.right()  - toast.width() - 24
             base_y = geo.bottom() - toast.height() - 24
         else:
@@ -180,11 +190,20 @@ class ToastManager:
             base_x = screen.right()  - toast.width() - 24
             base_y = screen.bottom() - toast.height() - 24
 
-        # Stack ke atas setiap toast yang masih aktif
-        offset_y = 0
-        for t in cls._active:
-            offset_y += t.height() + 8
-
+        # Stack ke atas
+        offset_y = sum(t.height() + 8 for t in cls._active)
         toast.move(base_x, base_y - offset_y)
+
+        # Saat toast ditutup: hapus dari list
+        toast.destroyed.connect(lambda: cls._remove(toast))
+
         toast.show_animated()
         cls._active.append(toast)
+
+    @classmethod
+    def _remove(cls, toast: ToastNotification) -> None:
+        """Hapus toast dari daftar aktif secara aman."""
+        try:
+            cls._active.remove(toast)
+        except ValueError:
+            pass

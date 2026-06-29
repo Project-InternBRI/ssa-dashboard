@@ -1,44 +1,36 @@
 """
 preview_table.py — Halaman Preview Tabel.
-Menampilkan hasil generate, dengan search, filter segmen, dan fitur Export.
+
+Tab per KC. Setiap tab menampilkan tabel dengan kolom:
+  Mata Anggaran | POSISI (per periode) | RKA (kosong) |
+  Pencapaian RKA (—) | GROWTH (MTD | DTD | YOY | YTD)
+
+Dilengkapi toolbar (Export Excel, Generate Ulang, Search).
 """
-import os
-import subprocess
-from pathlib import Path
-from datetime import datetime
+from __future__ import annotations
 
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QFrame, QPushButton, QTableWidget, QComboBox,
+                               QFrame, QPushButton, QTabWidget, QTableWidget,
                                QTableWidgetItem, QHeaderView, QLineEdit,
-                               QTabBar, QFileDialog, QMessageBox)
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QCursor, QColor, QFont, QIcon
+                               QScrollArea, QAbstractItemView, QFileDialog)
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QCursor, QColor, QFont, QBrush
 
 from core.exporter import export_to_excel
 from ui.toast_notification import ToastManager
 
-
-SHEET_ORDER = ["Tabungan", "Giro", "Deposito", "CASA", "Total DPK", "Pinjaman"]
-SUBTOTAL_KEYS = ["subtotal", "sub total"]
-TOTAL_KEYS    = ["total keseluruhan", "grand total", "total dpk"]
-
-
-class ExportWorker(QThread):
-    finished = Signal(str)
-    error = Signal(str)
-
-    def __init__(self, data_dict, output_path, tanggal_data):
-        super().__init__()
-        self.data_dict = data_dict
-        self.output_path = output_path
-        self.tanggal_data = tanggal_data
-
-    def run(self):
-        try:
-            export_to_excel(self.data_dict, self.output_path, self.tanggal_data)
-            self.finished.emit(self.output_path)
-        except Exception as e:
-            self.error.emit(str(e))
+# Warna baris
+COLORS = {
+    "header":   "#FFFFFF",
+    "data_a":   "#FFFFFF",
+    "data_b":   "#F8FAFC",
+    "subtotal": "#EBF2FA",
+    "total":    "#1F4E78",
+}
+FONT_TOTAL = QColor("#FFFFFF")
+FONT_DARK  = QColor("#1E293B")
+FONT_DIM   = QColor("#64748B")
+FONT_RED   = QColor("#DC2626")
 
 
 class PreviewTableWidget(QWidget):
@@ -46,292 +38,412 @@ class PreviewTableWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._data_dict = {}
-        self._current_sheet = None
-        self._export_worker = None
-        self.init_ui()
+        self._data: dict = {}
+        self._init_ui()
 
-    def init_ui(self):
+    # ── BUILD UI ────────────────────────────────────────────────
+    def _init_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        self._container = QWidget()
-        self._container.setStyleSheet("background: #F8FAFC;")
-        main_lay = QVBoxLayout(self._container)
-        main_lay.setContentsMargins(32, 28, 32, 24)
-        main_lay.setSpacing(16)
+        # Toolbar
+        self._toolbar = self._build_toolbar()
+        root.addWidget(self._toolbar)
 
-        # 1. TOOLBAR ATAS
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(12)
-        
-        self._search = QLineEdit()
-        self._search.setPlaceholderText("Cari nama KC...")
-        self._search.setFixedHeight(40)
-        self._search.setMinimumWidth(250)
-        self._search.textChanged.connect(self._filter_table)
-        self._search.setStyleSheet("""
-            QLineEdit { background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 6px; padding: 0 12px; font-size: 13px; }
-            QLineEdit:focus { border: 1px solid #2563EB; }
-        """)
-
-        self._combo_filter = QComboBox()
-        self._combo_filter.addItems(["Semua Segmen"])
-        self._combo_filter.setFixedHeight(40)
-        self._combo_filter.setMinimumWidth(150)
-        self._combo_filter.setStyleSheet("""
-            QComboBox { background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 6px; padding: 0 12px; font-size: 13px; }
-        """)
-
-        self._btn_gen_ulang = QPushButton("🔄 Generate Ulang")
-        self._btn_gen_ulang.setFixedHeight(40)
-        self._btn_gen_ulang.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self._btn_gen_ulang.setStyleSheet("""
-            QPushButton { background: transparent; color: #2563EB; border: 1px solid #2563EB; border-radius: 6px; padding: 0 16px; font-weight: bold; font-size: 13px; }
-            QPushButton:hover { background: #EFF6FF; }
-        """)
-        self._btn_gen_ulang.clicked.connect(lambda: self.navigate_to.emit(2))
-
-        self._btn_export = QPushButton("📥 Export Excel")
-        self._btn_export.setFixedHeight(40)
-        self._btn_export.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self._btn_export.setEnabled(False) # Disabled by default
-        self._btn_export.setStyleSheet("""
-            QPushButton { background: #16A34A; color: #FFFFFF; border: none; border-radius: 6px; padding: 0 20px; font-weight: bold; font-size: 13px; }
-            QPushButton:hover { background: #15803D; }
-            QPushButton:disabled { background: #94A3B8; color: #F1F5F9; }
-        """)
-        self._btn_export.clicked.connect(self._start_export)
-
-        toolbar.addWidget(self._search)
-        toolbar.addWidget(self._combo_filter)
-        toolbar.addStretch()
-        toolbar.addWidget(self._btn_gen_ulang)
-        toolbar.addWidget(self._btn_export)
-        
-        main_lay.addLayout(toolbar)
-
-        # 2. TAB SHEET
-        self._tab_bar = QTabBar()
-        self._tab_bar.setStyleSheet("""
+        # Tab widget
+        self._tabs = QTabWidget()
+        self._tabs.setStyleSheet("""
+            QTabWidget::pane { border: none; background: #FFFFFF; border-top: 1px solid #E2EAF4; }
             QTabBar::tab {
-                padding: 10px 20px; font-size: 14px; font-weight: 500; color: #64748B; border: none; border-bottom: 3px solid transparent; background: transparent;
+                background: #F8FAFC; color: #64748B; padding: 10px 20px;
+                border-top-left-radius: 6px; border-top-right-radius: 6px;
+                font-size: 13px; font-weight: bold;
+                border: none; margin-right: 2px;
             }
-            QTabBar::tab:selected {
-                color: #2563EB; font-weight: 700; border-bottom: 3px solid #2563EB;
-            }
-            QTabBar::tab:hover:!selected { color: #1E293B; }
+            QTabBar::tab:selected { background: #FFFFFF; color: #2563EB; border-top: 3px solid #2563EB; }
+            QTabBar::tab:hover:!selected { background: #F1F5F9; color: #1E293B; }
         """)
-        self._tab_bar.currentChanged.connect(self._on_tab_changed)
-        main_lay.addWidget(self._tab_bar)
+        root.addWidget(self._tabs)
 
-        # 3. TABEL DATA
-        self._table = QTableWidget()
-        self._table.setAlternatingRowColors(True)
-        self._table.verticalHeader().setVisible(False)
-        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self._table.setStyleSheet("""
-            QTableWidget {
-                background: #FFFFFF; border: 1px solid #E2EAF4; border-radius: 8px; gridline-color: #E2EAF4; alternate-background-color: #F8FAFC;
-            }
-            QTableWidget::item:hover { background-color: #EFF6FF; }
-            QHeaderView::section {
-                background-color: #1E3A5F; color: #FFFFFF; font-weight: bold; border: none; border-right: 1px solid #334155; padding: 8px;
-            }
+        # Empty state
+        self._empty = self._build_empty()
+        root.addWidget(self._empty)
+
+        self._show_empty()
+
+    def _build_toolbar(self) -> QFrame:
+        fr = QFrame()
+        fr.setFixedHeight(64)
+        fr.setStyleSheet("""
+            QFrame { background: #FFFFFF; border-bottom: 1px solid #E2EAF4; }
         """)
-        main_lay.addWidget(self._table, 1)
+        lay = QHBoxLayout(fr)
+        lay.setContentsMargins(24, 0, 24, 0)
+        lay.setSpacing(12)
 
-        # 4. EMPTY STATE
-        self._empty = QWidget()
-        self._empty.setStyleSheet("background: transparent;")
-        el = QVBoxLayout(self._empty)
-        el.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        el.setSpacing(12)
+        # Search
+        self._search = QLineEdit()
+        self._search.setPlaceholderText("Cari mata anggaran, segmen, produk...")
+        self._search.setFixedHeight(36)
+        self._search.setMinimumWidth(300)
+        self._search.setStyleSheet("""
+            QLineEdit { background: #F8FAFC; border: 1px solid #E2EAF4;
+                border-radius: 8px; padding: 0 12px; font-size: 13px; }
+            QLineEdit:focus { border-color: #93C5FD; }
+        """)
+        self._search.textChanged.connect(self._filter_rows)
 
-        ic = QLabel("⊞")
-        ic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ic.setStyleSheet("font-size: 64px; color: #CBD5E1; border: none;")
-        t1 = QLabel("Belum Ada Data untuk Ditampilkan")
+        lay.addWidget(self._search)
+        lay.addStretch()
+
+        # Tombol Generate Ulang
+        btn_gen = QPushButton("Generate Ulang")
+        btn_gen.setFixedHeight(36)
+        btn_gen.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        btn_gen.setStyleSheet("""
+            QPushButton { background: #EFF6FF; color: #2563EB; border: none;
+                border-radius: 8px; padding: 0 16px; font-weight: bold; font-size: 13px; }
+            QPushButton:hover { background: #DBEAFE; }
+        """)
+        btn_gen.clicked.connect(lambda: self.navigate_to.emit(2))
+
+        # Tombol Export Excel
+        self._btn_export = QPushButton("Export Excel")
+        self._btn_export.setFixedHeight(36)
+        self._btn_export.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self._btn_export.setEnabled(False)
+        self._btn_export.setStyleSheet("""
+            QPushButton { background: #16A34A; color: #FFFFFF; border: none;
+                border-radius: 8px; padding: 0 16px; font-weight: bold; font-size: 13px; }
+            QPushButton:hover { background: #15803D; }
+            QPushButton:disabled { background: #CBD5E1; color: #FFFFFF; }
+        """)
+        self._btn_export.clicked.connect(self._export)
+
+        lay.addWidget(btn_gen)
+        lay.addWidget(self._btn_export)
+        return fr
+
+    def _build_empty(self) -> QWidget:
+        w = QWidget()
+        w.setStyleSheet("background: #F8FAFC;")
+        lay = QVBoxLayout(w)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.setSpacing(14)
+
+        t1 = QLabel("Belum Ada Data Preview")
         t1.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        t1.setStyleSheet("font-size: 18px; font-weight: bold; color: #1E293B;")
-        t2 = QLabel("Upload file SSA dan jalankan Generate terlebih dahulu")
+        t1.setStyleSheet("font-size: 20px; font-weight: bold; color: #1E293B;")
+        t2 = QLabel("Lakukan generate terlebih dahulu untuk melihat preview tabel")
         t2.setAlignment(Qt.AlignmentFlag.AlignCenter)
         t2.setStyleSheet("font-size: 14px; color: #64748B;")
-        
-        btn_up = QPushButton("Mulai Upload & Generate")
-        btn_up.setFixedHeight(44)
-        btn_up.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        btn_up.setStyleSheet("""
-            QPushButton { background: #2563EB; color: #FFFFFF; border-radius: 8px; font-weight: bold; font-size: 14px; padding: 0 24px; border: none; }
+
+        btn = QPushButton("Generate Sekarang")
+        btn.setFixedHeight(40)
+        btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        btn.setStyleSheet("""
+            QPushButton { background: #2563EB; color: #FFFFFF; border-radius: 8px;
+                padding: 0 24px; font-weight: bold; font-size: 14px; border: none; }
             QPushButton:hover { background: #1D4ED8; }
         """)
-        btn_up.clicked.connect(lambda: self.navigate_to.emit(2))
+        btn.clicked.connect(lambda: self.navigate_to.emit(2))
 
-        el.addWidget(ic)
-        el.addWidget(t1)
-        el.addWidget(t2)
-        el.addSpacing(16)
-        el.addWidget(btn_up, alignment=Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(t1)
+        lay.addWidget(t2)
+        lay.addSpacing(8)
+        lay.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        return w
 
-        main_lay.addWidget(self._empty)
-        root.addWidget(self._container)
-
-        self._empty_btn = btn_up  # For connection from main_window if needed
-
-        self._show_empty_state()
-
+    # ── LOAD DATA ────────────────────────────────────────────────
     def load_data(self, data_dict: dict):
-        self._data_dict = data_dict
+        self._data = data_dict
         if not data_dict:
-            self._show_empty_state()
+            self._show_empty()
             return
 
-        self._show_table_state()
-
-        while self._tab_bar.count():
-            self._tab_bar.removeTab(0)
-
-        for sheet in SHEET_ORDER:
-            if sheet in data_dict and not data_dict[sheet].empty:
-                df = data_dict[sheet]
-                kc_count = len(df[df["KC"] != "TOTAL KESELURUHAN"]) if "KC" in df.columns else len(df)
-                self._tab_bar.addTab(f"{sheet}  ({kc_count})")
-
-        if self._tab_bar.count() > 0:
-            self._tab_bar.setCurrentIndex(0)
-            self._render_sheet(SHEET_ORDER[0])
-
-    def _show_empty_state(self):
-        self._table.hide()
-        self._tab_bar.hide()
-        self._search.setEnabled(False)
-        self._combo_filter.setEnabled(False)
-        self._btn_export.setEnabled(False)
-        self._btn_export.setToolTip("Lakukan generate terlebih dahulu")
-        self._empty.show()
-
-    def _show_table_state(self):
+        self._tabs.clear()
         self._empty.hide()
-        self._table.show()
-        self._tab_bar.show()
-        self._search.setEnabled(True)
-        self._combo_filter.setEnabled(True)
+        self._toolbar.show()
+        self._tabs.show()
         self._btn_export.setEnabled(True)
-        self._btn_export.setToolTip("Export data ke Excel")
 
-    def _on_tab_changed(self, index):
-        if index < 0:
-            return
-        tab_text = self._tab_bar.tabText(index)
-        sheet_name = tab_text.split("  (")[0].strip()
-        self._render_sheet(sheet_name)
+        # Buat tab per KC — Total AH Gunsar terakhir
+        kc_names = [k for k in data_dict if k not in ("Total AH Gunsar", "__stats__")]
+        if "Total AH Gunsar" in data_dict:
+            kc_names.append("Total AH Gunsar")
 
-    def _render_sheet(self, sheet_name: str):
-        if sheet_name not in self._data_dict:
-            return
+        for kc in kc_names:
+            kc_data = data_dict[kc]
+            short   = kc_data.get("kc_short", kc)[:20]
+            widget  = self._build_tab(kc, kc_data)
+            self._tabs.addTab(widget, short)
 
-        self._current_sheet = sheet_name
-        df = self._data_dict[sheet_name]
-        cols = list(df.columns)
+    def show_empty_cleared(self):
+        """
+        Tampilkan empty state khusus saat file wajib di-clear.
+        Data preview dihapus dan tombol export dinonaktifkan.
+        """
+        self._data = {}
+        self._tabs.clear()
+        self._tabs.hide()
+        self._btn_export.setEnabled(False)
 
-        self._table.clear()
-        self._table.setRowCount(len(df))
-        self._table.setColumnCount(len(cols))
-        self._table.setHorizontalHeaderLabels(cols)
+        # Rebuild empty widget dengan pesan khusus
+        # Hapus empty state lama
+        old = self._empty
+        if old:
+            old.hide()
 
-        header = self._table.horizontalHeader()
-        header.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        self._table.setColumnWidth(0, 300)
-        for i in range(1, len(cols)):
-            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+        w = QWidget()
+        w.setStyleSheet("background: #F8FAFC;")
+        lay = QVBoxLayout(w)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.setSpacing(14)
 
-        for row_idx in range(len(df)):
-            row_data = df.iloc[row_idx]
-            kc_val = str(row_data.iloc[0]) if len(row_data) > 0 else ""
-            kc_lower = kc_val.strip().lower()
+        t1 = QLabel("Data Tidak Tersedia")
+        t1.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        t1.setStyleSheet(
+            "font-size: 17px; font-weight: 700; color: #64748B;")
 
-            is_subtotal = any(k in kc_lower for k in SUBTOTAL_KEYS)
-            is_total = any(k in kc_lower for k in TOTAL_KEYS)
+        t2 = QLabel(
+            "File SSA telah dihapus. Upload ulang dan generate kembali.")
+        t2.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        t2.setStyleSheet("font-size: 13px; color: #94A3B8;")
 
-            for col_idx, col_name in enumerate(cols):
-                value = row_data[col_name]
-                item = QTableWidgetItem()
+        btn = QPushButton("Upload File")
+        btn.setFixedHeight(38)
+        btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        btn.setStyleSheet("""
+            QPushButton {
+                background: #2563EB; color: white;
+                border-radius: 8px; padding: 0 24px;
+                font-weight: 600; font-size: 13px; border: none;
+            }
+            QPushButton:hover { background: #1D4ED8; }
+        """)
+        btn.clicked.connect(lambda: self.navigate_to.emit(2))
 
-                if col_idx == 0:
-                    item.setText(str(value))
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        lay.addWidget(t1)
+        lay.addWidget(t2)
+        lay.addSpacing(8)
+        lay.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Insert ke root layout
+        self.layout().addWidget(w)
+        self._empty = w
+        w.show()
+
+    def _build_tab(self, kc_name: str, kc_data: dict) -> QWidget:
+        """Buat satu tab berisi QTableWidget."""
+        w   = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(0, 0, 0, 0)
+
+        rows_all  = kc_data.get("rows", [])
+        rows_dpk  = kc_data.get("rows_dpk", [])
+        rows_pinj = kc_data.get("rows_pinjaman", [])
+        periodes  = kc_data.get("periode_list", [])
+        mtd_lbl   = kc_data.get("mtd_label", "MTD")
+        dtd_lbl   = kc_data.get("dtd_label", "DTD")
+        yoy_lbl   = kc_data.get("yoy_label", "YOY")
+        ytd_lbl   = kc_data.get("ytd_label", "YTD")
+
+        # Kolom: Mata Anggaran + periode + 4 Growth
+        col_headers = (["Mata Anggaran"] + periodes +
+                       [mtd_lbl, dtd_lbl, yoy_lbl, ytd_lbl])
+
+        all_rows = []
+        if rows_all:
+            all_rows = rows_all
+        else:
+            if rows_dpk:
+                all_rows.append({"row_type": "__section__", "label": f"DPK — {kc_name}"})
+                all_rows.extend(rows_dpk)
+            if rows_pinj:
+                all_rows.append({"row_type": "__section__", "label": f"PINJAMAN — {kc_name}"})
+                all_rows.extend(rows_pinj)
+
+        tbl = QTableWidget(len(all_rows), len(col_headers))
+        tbl.setHorizontalHeaderLabels(col_headers)
+        tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        tbl.setAlternatingRowColors(False)
+        tbl.verticalHeader().setVisible(False)
+        tbl.setFrameShape(QFrame.Shape.NoFrame)
+        tbl.setGridStyle(Qt.PenStyle.SolidLine)
+        tbl.setStyleSheet("""
+            QTableWidget { background: #FFFFFF; gridline-color: #F1F5F9; border: none; }
+            QHeaderView::section {
+                background-color: #1E3A5F; color: #FFFFFF; font-weight: bold;
+                font-size: 12px; padding: 8px; border: none;
+                border-right: 1px solid #2A5080; border-bottom: 1px solid #2A5080;
+            }
+            QTableWidget::item:selected { background: #EFF6FF; color: #1E3A5F; }
+        """)
+
+        # Resize kolom
+        hh = tbl.horizontalHeader()
+        hh.setDefaultSectionSize(120)
+        hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        tbl.setColumnWidth(0, 220)
+
+        n_p = len(periodes)
+        for i in range(1, n_p + 1):
+            tbl.setColumnWidth(i, 110)
+        for i in range(n_p + 1, n_p + 5):
+            tbl.setColumnWidth(i, 130)
+
+        # Isi baris
+        for r_idx, row_data in enumerate(all_rows):
+            row_type = row_data.get("row_type", "data")
+            label    = row_data.get("label", "")
+            values   = row_data.get("values", {})
+            mtd_v    = row_data.get("mtd", 0)
+            dtd_v    = row_data.get("dtd", 0)
+            yoy_v    = row_data.get("yoy", 0)
+            ytd_v    = row_data.get("ytd", 0)
+
+            # Section separator (old format)
+            if row_type == "__section__":
+                for c in range(len(col_headers)):
+                    item = QTableWidgetItem(label if c == 0 else "")
+                    item.setBackground(QBrush(QColor("#0F2A4A")))
+                    item.setForeground(QBrush(QColor("#FFFFFF")))
+                    f = QFont()
+                    f.setBold(True)
+                    item.setFont(f)
+                    tbl.setItem(r_idx, c, item)
+                tbl.setRowHeight(r_idx, 26)
+                continue
+
+            # Separator (new format — baris biru solid tipis)
+            if row_type == "separator":
+                for c in range(len(col_headers)):
+                    item = QTableWidgetItem("")
+                    item.setBackground(QBrush(QColor("#1E3A5F")))
+                    tbl.setItem(r_idx, c, item)
+                tbl.setRowHeight(r_idx, 8)
+                continue
+
+            # Pilih warna baris
+            font_obj = QFont()
+            if row_type == "total":
+                bg_clr = QColor(COLORS["total"])
+                fg_clr = FONT_TOTAL
+                font_obj.setBold(True)
+            elif row_type == "subtotal":
+                bg_clr = QColor(COLORS["subtotal"])
+                fg_clr = FONT_DARK
+                font_obj.setBold(True)
+                font_obj.setItalic(True)
+            elif row_type == "header":
+                bg_clr = QColor(COLORS["header"])
+                fg_clr = FONT_DARK
+                font_obj.setBold(True)
+            elif row_type == "bold":
+                bg_clr = QColor(COLORS.get("subtotal", "#EFF6FF"))
+                fg_clr = FONT_DARK
+                font_obj.setBold(True)
+            else:
+                bg_clr = QColor(COLORS["data_a"] if r_idx % 2 == 0
+                                 else COLORS["data_b"])
+                fg_clr = FONT_DARK
+                font_obj.setBold(False)
+
+            tbl.setRowHeight(r_idx, 28)
+
+            # Kolom 0: Mata Anggaran
+            item_ma = QTableWidgetItem(label)
+            item_ma.setBackground(QBrush(bg_clr))
+            item_ma.setForeground(QBrush(fg_clr))
+            item_ma.setFont(font_obj)
+            tbl.setItem(r_idx, 0, item_ma)
+
+            # Kolom Posisi
+            for c_i, p in enumerate(periodes):
+                val = values.get(p, 0)
+                if row_type == "header" or val == "":
+                    txt = ""
                 else:
                     try:
-                        num = float(value)
-                        formatted = f"{num:,.0f}".replace(",", ".")
-                        item.setText(formatted)
-                        item.setData(Qt.ItemDataRole.UserRole, num)
-                    except (ValueError, TypeError):
-                        item.setText(str(value))
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                        is_pct = '%' in label
+                        txt = f"{val * 100:,.2f}%" if is_pct else f"{val:,.0f}"
+                    except:
+                        txt = str(val)
+                it  = QTableWidgetItem(txt)
+                it.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                it.setBackground(QBrush(bg_clr))
+                it.setForeground(QBrush(fg_clr))
+                it.setFont(font_obj)
+                tbl.setItem(r_idx, 1 + c_i, it)
 
-                if is_total:
-                    item.setBackground(QColor("#1E3A5F"))
-                    item.setForeground(QColor("#FFFFFF"))
-                    item.setFont(QFont("Arial", 11, QFont.Weight.Bold))
-                elif is_subtotal:
-                    item.setBackground(QColor("#DBEAFE"))
-                    item.setForeground(QColor("#1E293B"))
-                    font = QFont("Arial", 11, QFont.Weight.Bold)
-                    font.setItalic(True)
-                    item.setFont(font)
+            # Growth columns
+            growth_start = n_p + 1
+            for gi, gv in enumerate([mtd_v, dtd_v, yoy_v, ytd_v]):
+                if row_type == "header" or gv == "":
+                    txt = ""
+                elif gv == 0:
+                    txt = "0"
+                else:
+                    try:
+                        txt = f"{gv:,.0f}"
+                    except:
+                        txt = str(gv)
+                it_g = QTableWidgetItem(txt)
+                it_g.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                it_g.setBackground(QBrush(bg_clr))
+                # Warna font growth
+                if row_type not in ("header", "__section__"):
+                    is_negative = isinstance(gv, (int, float)) and gv < 0
+                    if is_negative:
+                        it_g.setForeground(QBrush(FONT_RED))
+                    elif row_type == "total":
+                        it_g.setForeground(QBrush(FONT_TOTAL))
+                    else:
+                        it_g.setForeground(QBrush(fg_clr))
+                it_g.setFont(font_obj)
+                tbl.setItem(r_idx, growth_start + gi, it_g)
 
-                self._table.setItem(row_idx, col_idx, item)
+        lay.addWidget(tbl)
+        self._current_table = tbl
+        return w
 
-    def _filter_table(self, text: str):
-        search = text.strip().lower()
-        for row in range(self._table.rowCount()):
-            item = self._table.item(row, 0)
-            if item:
-                match = search in item.text().lower() or search == ""
-                self._table.setRowHidden(row, not match)
+    # ── SEARCH ───────────────────────────────────────────────────
+    def _filter_rows(self, query: str):
+        q = query.strip().lower()
+        for i in range(self._tabs.count()):
+            widget = self._tabs.widget(i)
+            tbl    = widget.findChild(QTableWidget)
+            if not tbl:
+                continue
+            for r in range(tbl.rowCount()):
+                item = tbl.item(r, 0)
+                if item:
+                    visible = (not q) or (q in item.text().lower())
+                    tbl.setRowHidden(r, not visible)
 
-    def _start_export(self):
-        if not self._data_dict:
+    # ── EXPORT ───────────────────────────────────────────────────
+    def _export(self):
+        if not self._data:
+            ToastManager.show(self.window(), "Tidak ada data untuk dieksport.", "warning")
             return
 
-        default_name = f"Dashboard_AH_Gunsar_{datetime.now().strftime('%d_%b_%Y')}.xlsx"
-        path, _ = QFileDialog.getSaveFileName(self, "Simpan File Excel", default_name, "Excel Files (*.xlsx)")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Excel", "Dashboard_SSA.xlsx",
+            "Excel Files (*.xlsx)")
         if not path:
             return
 
-        self._btn_export.setEnabled(False)
-        self._btn_export.setText("Mengekspor...")
-        
-        self._export_worker = ExportWorker(self._data_dict, path, datetime.now().strftime("%d %B %Y"))
-        self._export_worker.finished.connect(self._on_export_success)
-        self._export_worker.error.connect(self._on_export_error)
-        self._export_worker.start()
+        try:
+            export_to_excel(self._data, path)
+            ToastManager.show(self.window(),
+                              f"File berhasil disimpan: {path}", "success")
+        except Exception as e:
+            ToastManager.show(self.window(), f"Gagal export: {e}", "error")
 
-    def _on_export_success(self, path):
-        self._btn_export.setEnabled(True)
-        self._btn_export.setText("📥 Export Excel")
-        
-        # Toast dengan aksi
-        ToastManager.show(self.window(), f"Export berhasil: {os.path.basename(path)}", "success")
-        
-        reply = QMessageBox.information(
-            self, "Export Berhasil", f"File berhasil disimpan di:\n{path}\n\nIngin membuka folder?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            folder = os.path.dirname(path)
-            if os.name == 'mac':
-                subprocess.Popen(["open", folder])
-            elif os.name == 'nt':
-                os.startfile(folder)
-            else:
-                subprocess.Popen(["xdg-open", folder])
-
-    def _on_export_error(self, msg):
-        self._btn_export.setEnabled(True)
-        self._btn_export.setText("📥 Export Excel")
-        ToastManager.show(self.window(), f"Export gagal: {msg}", "error")
+    # ── HELPERS ──────────────────────────────────────────────────
+    def _show_empty(self):
+        self._tabs.hide()
+        self._toolbar.hide()
+        self._empty.show()

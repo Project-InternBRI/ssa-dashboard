@@ -7,18 +7,27 @@ import pandas as pd
 
 # Kolom wajib SSA Simpanan (minimal yang harus ada)
 REQUIRED_SIMPANAN = [
-    "Nama Cabang",
-    "Jenis Produk",
-    "Segmentasi BPR",
-    "Saldo",
+    'Nama Cabang',
+    'Nama Uker', 
+    'Month, Day, Year of Posisi',
+    'Segmentasi',
+    'Produk',
+    'Flag Giro Saldo Debet',
+    'Jenis Produk',
+    'Segmentasi BPR',
+    'Saldo'
 ]
 
 # Kolom wajib SSA Pinjaman
 REQUIRED_PINJAMAN = [
-    "Nama Cabang",
-    "Kolektabilitas One Obligor",
-    "Segmen",
-    "Baki Debet",
+    'Nama Cabang',
+    'Nama Uker',
+    'Produk',
+    'SEGMEN_2025',
+    'Month, Day, Year of Periode',
+    'Kolektabilitas One Obligor',
+    'Segmen',
+    'Baki Debet'
 ]
 
 
@@ -66,9 +75,9 @@ def validate_ssa_simpanan(df: pd.DataFrame) -> ValidationResult:
 
     if missing:
         msg = (
-            "File SSA Simpanan tidak memiliki kolom yang diharapkan:\n"
+            f"File SSA Simpanan tidak memiliki kolom yang diharapkan:\n"
             + "\n".join(f"  • {c}" for c in missing)
-            + "\n\nPastikan Anda memilih file SSA Simpanan yang benar."
+            + f"\n\nKolom yang tersedia: {list(df.columns)}"
         )
         return ValidationResult(False, msg, missing)
 
@@ -90,9 +99,9 @@ def validate_ssa_pinjaman(df: pd.DataFrame) -> ValidationResult:
 
     if missing:
         msg = (
-            "File SSA Pinjaman tidak memiliki kolom yang diharapkan:\n"
+            f"File SSA Pinjaman tidak memiliki kolom yang diharapkan:\n"
             + "\n".join(f"  • {c}" for c in missing)
-            + "\n\nPastikan Anda memilih file SSA Pinjaman yang benar."
+            + f"\n\nKolom yang tersedia: {list(df.columns)}"
         )
         return ValidationResult(False, msg, missing)
 

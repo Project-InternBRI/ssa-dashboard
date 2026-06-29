@@ -1,129 +1,117 @@
 """
-history_manager.py — Kelola riwayat generate dashboard.
-Menyimpan, membaca, menghapus entri dalam file JSON di folder history/.
+history_manager.py — Manajemen riwayat generate.
+Menyimpan log ke history/history.json.
+Field baru: jumlah_kc, jumlah_periode, has_historis, list_kc.
 """
 import json
-import uuid
-import shutil
 from pathlib import Path
 from datetime import datetime
 
-_ROOT        = Path(__file__).resolve().parent.parent
-HISTORY_DIR  = _ROOT / "history"
+# Lokasi direktori riwayat
+HISTORY_DIR  = Path(__file__).parent.parent / "history"
 HISTORY_FILE = HISTORY_DIR / "history.json"
 
 
 def _ensure_dir() -> None:
-    """Pastikan folder history/ ada."""
     HISTORY_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_history() -> list[dict]:
-    """
-    Baca seluruh riwayat dari JSON, diurutkan terbaru di atas.
-    Return list kosong jika file tidak ada atau rusak.
-    """
-    _ensure_dir()
+    """Baca seluruh riwayat. Return list dict, terbaru di depan."""
     if not HISTORY_FILE.exists():
         return []
     try:
-        with HISTORY_FILE.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        data.sort(key=lambda x: x.get("tanggal_proses", ""), reverse=True)
-        return data
-    except Exception:
+        data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+        return []
+    except (json.JSONDecodeError, OSError):
         return []
 
 
-def save_history(entry: dict) -> str:
+def save_history(entry: dict) -> None:
     """
-    Simpan satu entri riwayat baru.
-    Otomatis menambahkan 'id' dan 'tanggal_proses' jika belum ada.
-    Return id entri.
+    Tambahkan satu entri baru ke riwayat.
+
+    entry harus berisi minimal:
+        tanggal_proses, tanggal_data, nama_file_simpanan,
+        nama_file_pinjaman, output_path, status,
+        dan field opsional: jumlah_kc, jumlah_periode,
+        has_historis, list_kc, ukuran_file, waktu_proses.
     """
     _ensure_dir()
-    if "id" not in entry:
-        entry["id"] = str(uuid.uuid4())[:8]
-    if "tanggal_proses" not in entry:
-        entry["tanggal_proses"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    history = load_history()
 
-    data = load_history()
-    # Hapus entri lama dengan id yang sama (jika ada update)
-    data = [e for e in data if e.get("id") != entry["id"]]
-    data.insert(0, entry)
+    # Pastikan semua field standar ada
+    entry.setdefault("tanggal_proses",    datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    entry.setdefault("tanggal_data",      "")
+    entry.setdefault("nama_file_simpanan","")
+    entry.setdefault("nama_file_pinjaman","")
+    entry.setdefault("output_path",       "")
+    entry.setdefault("ukuran_file",       "0 KB")
+    entry.setdefault("waktu_proses",      "0s")
+    entry.setdefault("status",            "sukses")
+    entry.setdefault("jumlah_kc",         0)
+    entry.setdefault("jumlah_periode",    0)
+    entry.setdefault("has_historis",      False)
+    entry.setdefault("list_kc",           [])
 
-    with HISTORY_FILE.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    history.insert(0, entry)
 
-    return entry["id"]
+    # Batasi 100 entri
+    history = history[:100]
 
-
-def delete_history(entry_id: str) -> bool:
-    """
-    Hapus satu entri dan file Excel-nya.
-    Return True jika berhasil ditemukan dan dihapus.
-    """
-    data = load_history()
-    new_data = []
-    deleted = False
-
-    for item in data:
-        if item.get("id") == entry_id:
-            _delete_output_file(item)
-            deleted = True
-        else:
-            new_data.append(item)
-
-    with HISTORY_FILE.open("w", encoding="utf-8") as f:
-        json.dump(new_data, f, ensure_ascii=False, indent=2)
-
-    return deleted
+    try:
+        HISTORY_FILE.write_text(
+            json.dumps(history, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
 
 
-def delete_all_history() -> int:
-    """
-    Hapus semua entri riwayat dan file Excel-nya.
-    Return jumlah entri yang dihapus.
-    """
-    data = load_history()
-    count = len(data)
-    for item in data:
-        _delete_output_file(item)
-
-    with HISTORY_FILE.open("w", encoding="utf-8") as f:
-        json.dump([], f)
-
-    return count
-
-
-def get_history_file_path(entry_id: str) -> Path | None:
-    """
-    Return Path ke file Excel untuk satu entri.
-    Return None jika entri tidak ditemukan atau file tidak ada.
-    """
-    for item in load_history():
-        if item.get("id") == entry_id:
-            output = item.get("output_path", "")
-            if output:
-                p = Path(output)
-                if not p.is_absolute():
-                    p = _ROOT / p
-                if p.exists():
-                    return p
-    return None
+def delete_history_entry(index: int) -> bool:
+    """Hapus satu entri berdasarkan indeks. Return True jika berhasil."""
+    history = load_history()
+    if 0 <= index < len(history):
+        # Juga hapus file Excel output jika masih ada
+        path = history[index].get("output_path", "")
+        if path:
+            p = Path(path)
+            if p.exists():
+                try:
+                    p.unlink()
+                except OSError:
+                    pass
+        history.pop(index)
+        try:
+            HISTORY_FILE.write_text(
+                json.dumps(history, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except OSError:
+            return False
+        return True
+    return False
 
 
-def get_latest_entry() -> dict | None:
-    """Return entri riwayat terbaru, atau None jika kosong."""
-    data = load_history()
-    return data[0] if data else None
-
-
-def _delete_output_file(item: dict) -> None:
-    """Hapus file Excel yang terkait dengan satu entri riwayat."""
-    output = item.get("output_path", "")
-    if output:
-        p = Path(output)
-        if not p.is_absolute():
-            p = _ROOT / p
-        p.unlink(missing_ok=True)
+def clear_history() -> None:
+    """Hapus seluruh riwayat dan file-file Excel yang tercatat."""
+    history = load_history()
+    for entry in history:
+        path = entry.get("output_path", "")
+        if path:
+            p = Path(path)
+            if p.exists():
+                try:
+                    p.unlink()
+                except OSError:
+                    pass
+    _ensure_dir()
+    try:
+        HISTORY_FILE.write_text(
+            json.dumps([], ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass

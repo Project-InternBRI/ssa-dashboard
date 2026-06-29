@@ -22,8 +22,7 @@ class SplashScreen(QWidget):
         self.bg_widget.setObjectName("splashBg")
         self.bg_widget.setStyleSheet("""
             QWidget#splashBg {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #0F2A4A, stop:0.5 #1A3A5C, stop:1 #0D2240);
+                background: #FFFFFF;
                 border-radius: 16px;
             }
         """)
@@ -39,32 +38,22 @@ class SplashScreen(QWidget):
         logo_path = os.path.join(os.path.dirname(__file__), "..", "assets", "icons", "bri_logo.png")
         if os.path.exists(logo_path):
             pixmap = QPixmap(logo_path).scaled(
-                140, 140,
+                240, 240,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
             self.logo_label.setPixmap(pixmap)
+            self.logo_label.setStyleSheet("background: transparent;")
         else:
             self.logo_label.setText("BRI")
-            self.logo_label.setStyleSheet("color: white; font-size: 56px; font-weight: bold;")
+            self.logo_label.setStyleSheet("color: #0F2A4A; font-size: 56px; font-weight: bold; background: transparent;")
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.bg_layout.addWidget(self.logo_label)
         self.bg_layout.addSpacing(20)
 
-        # App Title
-        self.title_label = QLabel("SSA Dashboard")
-        self.title_label.setStyleSheet("""
-            color: white;
-            font-size: 28px;
-            font-weight: bold;
-            letter-spacing: 2px;
-        """)
-        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.bg_layout.addWidget(self.title_label)
-
         # Subtitle
-        self.subtitle_label = QLabel("AH Gunsar · Jakarta Region")
-        self.subtitle_label.setStyleSheet("color: #7B9CC0; font-size: 13px;")
+        self.subtitle_label = QLabel("BRI Performance Review & Evaluation")
+        self.subtitle_label.setStyleSheet("color: #475569; font-size: 13px; background: transparent;")
         self.subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.bg_layout.addWidget(self.subtitle_label)
 
@@ -72,7 +61,7 @@ class SplashScreen(QWidget):
 
         # Status Label
         self.status_label = QLabel("Mempersiapkan sistem...")
-        self.status_label.setStyleSheet("color: #5A8DB5; font-size: 12px;")
+        self.status_label.setStyleSheet("color: #64748B; font-size: 12px; background: transparent;")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.bg_layout.addWidget(self.status_label)
         self.bg_layout.addSpacing(8)
@@ -83,14 +72,14 @@ class SplashScreen(QWidget):
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                background-color: rgba(255, 255, 255, 0.08);
+                background-color: #E2E8F0;
                 border: none;
                 border-radius: 2px;
             }
             QProgressBar::chunk {
                 background-color: qlineargradient(
                     spread:pad, x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #2563EB, stop:1 #60A5FA
+                    stop:0 #2563EB, stop:1 #F97316
                 );
                 border-radius: 2px;
             }
@@ -102,7 +91,7 @@ class SplashScreen(QWidget):
 
         # Copyright
         copyright_label = QLabel("© 2026 Bank BRI — Semua Hak Dilindungi")
-        copyright_label.setStyleSheet("color: #3D6080; font-size: 10px;")
+        copyright_label.setStyleSheet("color: #94A3B8; font-size: 10px; background: transparent;")
         copyright_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.bg_layout.addWidget(copyright_label)
 

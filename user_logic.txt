@@ -1,0 +1,372 @@
+<USER_REQUEST>
+Kamu melanjutkan pengerjaan core/processor.py aplikasi SSA Dashboard.
+
+Perbaikan ini KHUSUS pada logika pembacaan data Pinjaman, SML, NPL.
+Bagian DPK/Simpanan JANGAN diubah — sudah benar.
+
+=============================================
+HASIL ANALISIS MENDALAM TERHADAP FILE SSA
+=============================================
+
+Dari analisis cross-check antara file CSV SSA Pinjaman dengan
+file Dashboard manual, ditemukan logika PASTI sebagai berikut.
+
+KOLOM KUNCI YANG DIGUNAKAN:
+  Kolom "SEGMEN_2025" → untuk klasifikasi baris dashboard
+  Kolom "Produk"      → untuk pengecualian produk tertentu
+  Kolom "Baki Debet"  → nilai yang dijumlahkan
+  Kolom "Kolektabilitas One Obligor" → filter performing/SML/NPL
+
+NILAI KOLEKTABILITAS:
+  0        → EXCLUDE dari SEMUA perhitungan tanpa pengecualian
+  1        → Performing (Lancar)
+  2        → SML (Special Mention)
+  3, 4, 5  → NPL (Non-Performing)
+
+=============================================
+LOGIKA YANG TERBUKTI AKURAT 100% PER BARIS
+=============================================
+
+--- BARIS "Small" ---
+
+Formula:
+  SEGMEN_2025 = 'Small'
+  Kolektabilitas IN (1, 2, 3, 4, 5)  ← SEMUA, kecuali 0
+  SUM(Baki Debet) / 1.000.000
+
+Sudah diverifikasi cocok PERSIS di semua KC:
+  Tanah Abang Des-25: 629.715,76 ✓
+  Krekot Des-25: 392.942,34 ✓
+  Kemayoran Des-25: 276.392,23 ✓
+
+--- BARIS "SML > Small" ---
+
+Formula:
+  SEGMEN_2025 = 'Small'
+  Kolektabilitas = 2
+  SUM(Baki Debet) / 1.000.000
+
+Sudah diverifikasi cocok PERSIS di semua KC:
+  Tanah Abang Des-25: 38.746,41 ✓
+  Krekot Des-25: 19.938,33 ✓
+
+--- BARIS "NPL > Small" ---
+
+Formula:
+  SEGMEN_2025 = 'Small'
+  Kolektabilitas IN (3, 4, 5)
+  SUM(Baki Debet) / 1.000.000
+
+Sudah diverifikasi cocok PERSIS di semua KC:
+  Tanah Abang Des-25: 77.696,39 ✓
+  Krekot Des-25: 22.678,05 ✓
+
+--- BARIS "Konsumer" ---
+
+Formula:
+  SEGMEN_2025 = 'Consumer'
+  Produk BUKAN 'Lainnya'
+  Kolektabilitas IN (1, 2, 3, 4, 5)
+  SUM(Baki Debet) / 1.000.000
+
+Cara implementasi filter:
+  mask_consumer = (df['SEGMEN_2025'] == 'Consumer')
+  mask_bukan_lainnya = ~(df['Produk'].str.strip().str.lower() == 'lainnya')
+  konsumer = df[mask_consumer & mask_bukan_lainnya]['Baki Debet'].sum()
+
+Sudah diverifikasi cocok PERSIS di semua KC:
+  Tanah Abang Des-25: 1.592.931,04 ✓
+  Gunung Sahari Des-25: 727.864,47 ✓
+  Kemayoran Des-25: 4.164,22 ✓
+  Veteran Des-25: 4.077.665,50 ✓
+
+--- BARIS "SML > Konsumer" ---
+
+Formula:
+  SEGMEN_2025 = 'Consumer'
+  Produk BUKAN 'Lainnya'
+  Kolektabilitas = 2
+  SUM(Baki Debet) / 1.000.000
+
+--- BARIS "NPL > Konsumer" ---
+
+Formula:
+  SEGMEN_2025 = 'Consumer'
+  Produk BUKAN 'Lainnya'
+  Kolektabilitas IN (3, 4, 5)
+  SUM(Baki Debet) / 1.000.000
+
+--- BARIS "Mikro" ---
+
+Formula:
+  SEGMEN_2025 = 'Micro'
+  Produk BUKAN 'Kredit Mikro - KUR Ritel 2015'
+  (atau varian: nama produk mengandung 'kur ritel')
+  Kolektabilitas IN (1, 2, 3, 4, 5)
+  SUM(Baki Debet) / 1.000.000
+
+Cara implementasi:
+  mask_micro = (df['SEGMEN_2025'] == 'Micro')
+  mask_bukan_kurritel = ~(df['Produk'].str.strip().str.lower()
+                           .str.contains('kur ritel', na=False))
+  mikro = df[mask_micro & mask_bukan_kurritel]['Baki Debet'].sum()
+
+Sudah diverifikasi cocok PERSIS di KC yang datanya lengkap:
+  Krekot Des-25: 255.713,82 ✓ (dashboard: 255.714)
+  Kemayoran Des-25: 0 ✓ (dashboard: 0)
+
+Catatan penting:
+  Beberapa KC mungkin tidak memiliki produk Mikro lengkap di file SSA
+  (tidak ada Kupedes, KUR Mikro, dll). Hal ini WAJAR — tergantung
+  komposisi portofolio KC tersebut. Sistem tetap menghitung dengan benar
+  berdasarkan data yang ada di file SSA yang diupload.
+
+--- BARIS "SML > Mikro" ---
+
+Formula:
+  SEGMEN_2025 = 'Micro'
+  Produk BUKAN 'Kredit Mikro - KUR Ritel 2015'
+  Kolektabilitas = 2
+  SUM(Baki Debet) / 1.000.000
+
+--- BARIS "NPL > Mikro" ---
+
+Formula:
+  SEGMEN_2025 = 'Micro'
+  Produk BUKAN 'Kredit Mikro - KUR Ritel 2015'
+  Kolektabilitas IN (3, 4, 5)
+  SUM(Baki Debet) / 1.000.000
+
+--- TOTAL PINJAMAN, SML TOTAL, NPL TOTAL ---
+
+Total Pinjaman = Small + Konsumer + Mikro
+  (ketiganya sudah dihitung dengan formula masing-masing di atas)
+
+SML Total = SML Small + SML Konsumer + SML Mikro
+
+NPL Total = NPL Small + NPL Konsumer + NPL Mikro
+
+--- RASIO PERSENTASE ---
+
+SML %       = SML Total / Total Pinjaman
+Mikro %     = SML Mikro / Mikro (bukan dibagi Total Pinjaman)
+Small %     = SML Small / Small (bukan dibagi Total Pinjaman)
+Konsumer %  = SML Konsumer / Konsumer (bukan dibagi Total Pinjaman)
+
+NPL %       = NPL Total / Total Pinjaman
+Mikro %     = NPL Mikro / Mikro (bukan dibagi Total Pinjaman)
+Small %     = NPL Small / Small (bukan dibagi Total Pinjaman)
+Konsumer %  = NPL Konsumer / Konsumer (bukan dibagi Total Pinjaman)
+
+Jika penyebut = 0: simpan None, tampilkan '-' di Excel
+
+--- RECOVERY EC ---
+
+Tidak dihitung. Buat baris kosong placeholder saja.
+
+=============================================
+PREPROCESSING WAJIB SEBELUM SEMUA KALKULASI
+=============================================
+
+  def prepare_pinjaman(df):
+      # 1. Konversi Baki Debet ke float
+      def parse_num(v):
+          s = str(v).strip()
+          try: return float(s)
+          except:
+              s = s.replace('.','').replace(',','.')
+              try: return float(s)
+              except: return 0.0
+      df['Baki Debet'] = df['Baki Debet'].apply(parse_num)
+      
+      # 2. Konversi Kolektabilitas ke integer
+      df['Kolektabilitas One Obligor'] = pd.to_numeric(
+          df['Kolektabilitas One Obligor'], errors='coerce'
+      ).fillna(0).astype(int)
+      
+      # 3. Bersihkan whitespace semua kolom string
+      for col in ['SEGMEN_2025', 'Produk', 'Nama Cabang']:
+          if col in df.columns:
+              df[col] = df[col].astype(str).str.strip()
+      
+      # 4. Exclude Kolektabilitas = 0
+      df = df[df['Kolektabilitas One Obligor'] != 0].copy()
+      
+      # 5. Exclude Baki Debet NaN atau 0
+      df = df[df['Baki Debet'].notna() & (df['Baki Debet'] != 0)].copy()
+      
+      return df
+
+=============================================
+IMPLEMENTASI FUNGSI KALKULASI PINJAMAN
+=============================================
+
+  def hitung_pinjaman_kc(df_pinj, kc_keyword, tanggal):
+      '''
+      Menghitung semua nilai pinjaman untuk satu KC dan satu periode.
+      df_pinj sudah melalui prepare_pinjaman().
+      '''
+      # Filter KC (substring, case-insensitive)
+      mask_kc = df_pinj['Nama Cabang'].str.lower().str.contains(
+          kc_keyword.lower(), na=False
+      )
+      # Filter tanggal
+      mask_tgl = (df_pinj['Month, Day, Year of Periode'] == tanggal)
+      df = df_pinj[mask_kc & mask_tgl].copy()
+      
+      if df.empty:
+          return _zero_result()
+      
+      def s(m): return df[m]['Baki Debet'].sum() / 1_000_000
+      def safe_pct(num, den):
+          return round(num/den, 6) if den and den != 0 else None
+      
+      # Mask dasar per segmen
+      m_small    = df['SEGMEN_2025'] == 'Small'
+      m_consumer = (df['SEGMEN_2025'] == 'Consumer') & \
+                   ~(df['Produk'].str.lower() == 'lainnya')
+      m_micro    = (df['SEGMEN_2025'] == 'Micro') & \
+                   ~(df['Produk'].str.lower().str.contains('kur ritel', na=False))
+      
+      # Mask kolektabilitas
+      m_kol2   = df['Kolektabilitas One Obligor'] == 2
+      m_kol345 = df['Kolektabilitas One Obligor'].isin([3, 4, 5])
+      # Catatan: semua kol (1,2,3,4,5) sudah included karena kol=0 di-exclude saat prepare
+      
+      # Hitung nilai
+      small    = s(m_small)
+      konsumer = s(m_consumer)
+      mikro    = s(m_micro)
+      total_p  = small + konsumer + mikro
+      
+      sml_small    = s(m_small    & m_kol2)
+      sml_konsumer = s(m_consumer & m_kol2)
+      sml_mikro    = s(m_micro    & m_kol2)
+      sml_total    = sml_small + sml_konsumer + sml_mikro
+      
+      npl_small    = s(m_small    & m_kol345)
+      npl_konsumer = s(m_consumer & m_kol345)
+      npl_mikro    = s(m_micro    & m_kol345)
+      npl_total    = npl_small + npl_konsumer + npl_mikro
+      
+      return {
+          # Pinjaman
+          'pinjaman'         : total_p,
+          'pinjaman_mikro'   : mikro,
+          'pinjaman_small'   : small,
+          'pinjaman_konsumer': konsumer,
+          # SML
+          'sml'              : sml_total,
+          'sml_pct'          : safe_pct(sml_total, total_p),
+          'sml_mikro'        : sml_mikro,
+          'sml_mikro_pct'    : safe_pct(sml_mikro, mikro),
+          'sml_small'        : sml_small,
+          'sml_small_pct'    : safe_pct(sml_small, small),
+          'sml_konsumer'     : sml_konsumer,
+          'sml_konsumer_pct' : safe_pct(sml_konsumer, konsumer),
+          # NPL
+          'npl'              : npl_total,
+          'npl_pct'          : safe_pct(npl_total, total_p),
+          'npl_mikro'        : npl_mikro,
+          'npl_mikro_pct'    : safe_pct(npl_mikro, mikro),
+          'npl_small'        : npl_small,
+          'npl_small_pct'    : safe_pct(npl_small, small),
+          'npl_konsumer'     : npl_konsumer,
+          'npl_konsumer_pct' : safe_pct(npl_konsumer, konsumer),
+          # Recovery EC (kosong)
+          'recovery_ec'         : None,
+          'recovery_ec_mikro'   : None,
+          'recovery_ec_small'   : None,
+          'recovery_ec_konsumer': None,
+      }
+
+  def _zero_result():
+      keys = ['pinjaman','pinjaman_mikro','pinjaman_small','pinjaman_konsumer',
+              'sml','sml_pct','sml_mikro','sml_mikro_pct',
+              'sml_small','sml_small_pct','sml_konsumer','sml_konsumer_pct',
+              'npl','npl_pct','npl_mikro','npl_mikro_pct',
+              'npl_small','npl_small_pct','npl_konsumer','npl_konsumer_pct',
+              'recovery_ec','recovery_ec_mikro','recovery_ec_small','recovery_ec_konsumer']
+      return {k: None for k in keys}
+
+=============================================
+LOG WAJIB SAAT GENERATE
+=============================================
+
+Setiap kali generate, tampilkan log ini di console
+untuk memudahkan debugging:
+
+  def log_pinjaman_debug(df_pinj, kc_keyword, tanggal, hasil):
+      df_kc = df_pinj[
+          df_pinj['Nama Cabang'].str.lower().str.contains(kc_keyword.lower(), na=False) &
+          (df_pinj['Month, Day, Year of Periode'] == tanggal)
+      ]
+      print(f'\n[DEBUG] {kc_keyword} - {tanggal}')
+      print(f'  Total baris: {len(df_kc)}')
+      print(f'  SEGMEN_2025 unik: {sorted(df_kc[\"SEGMEN_2025\"].unique())}')
+      print(f'  Produk unik: {sorted(df_kc[\"Produk\"].unique())}')
+      print(f'  Pinjaman: {hasil[\"pinjaman\"]:,.1f}')
+      print(f'  Small: {hasil[\"pinjaman_small\"]:,.1f}')
+      print(f'  Konsumer: {hasil[\"pinjaman_konsumer\"]:,.1f}')
+      print(f'  Mikro: {hasil[\"pinjaman_mikro\"]:,.1f}')
+      print(f'  SML: {hasil[\"sml\"]:,.1f} ({hasil[\"sml_pct\"]:.2%})')
+      print(f'  NPL: {hasil[\"npl\"]:,.1f} ({hasil[\"npl_pct\"]:.2%})')
+
+=============================================
+FORMAT EXCEL OUTPUT
+=============================================
+
+Nilai absolut (Pinjaman, SML, NPL):
+  number_format = '#,##0'
+  alignment = right
+
+Nilai persentase (SML %, NPL %, dll):
+  Simpan sebagai DESIMAL (contoh: 0.046 bukan 4.6)
+  number_format = '0.00%'
+  Excel akan otomatis tampilkan: 4.60%
+  Jika None: tampilkan '-', jangan error
+
+Baris Recovery EC:
+  Isi kosong (None), jangan isi angka 0
+  Background berbeda agar user tahu perlu diisi manual
+
+=============================================
+INSTRUKSI PENGERJAAN
+=============================================
+
+Ganti SELURUH logika pinjaman di core/processor.py dengan
+implementasi di atas. Tampilkan kode LENGKAP.
+
+Jangan ubah:
+  - Logika DPK/Simpanan yang sudah benar
+  - Fungsi read_file() dan parse_numeric()
+  - Logika ekstraksi nama KC dan periode
+
+Yang harus diubah:
+  - Fungsi hitung pinjaman: gunakan implementasi di atas persis
+  - Pastikan prepare_pinjaman() dipanggil sebelum semua kalkulasi
+  - Tambahkan log_pinjaman_debug() yang dipanggil saat generate
+  - Pindahkan semua konstanta ke atas file:
+
+    # Produk yang dikecualikan dari Konsumer
+    EXCLUDE_KONSUMER = ['lainnya']
+
+    # Produk yang dikecualikan dari Mikro
+    EXCLUDE_MIKRO_PRODUK = ['kur ritel']
+    # (pencocokan: jika nama produk MENGANDUNG string ini → exclude)
+
+Tampilkan kode lengkap core/processor.py sekarang.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-06-28T10:35:42+07:00.
+
+The user's current state is as follows:
+Active Document: /Users/naufalrasydan/Documents/Workspace/Intern BRI/ssa-dashboard/ui/main_window.py (LANGUAGE_PYTHON)
+Cursor is on line: 1
+Other open documents:
+- /Users/naufalrasydan/Documents/Workspace/Intern BRI/ssa-dashboard/ui/splash_screen.py (LANGUAGE_PYTHON)
+- /Users/naufalrasydan/Documents/Workspace/Intern BRI/ssa-dashboard/ui/main_window.py (LANGUAGE_PYTHON)
+- /Users/naufalrasydan/Documents/Workspace/Intern BRI/ssa-dashboard/ui/input_rka_widget.py (LANGUAGE_PYTHON)
+- /Users/naufalrasydan/Documents/Workspace/Intern BRI/ssa-dashboard/ui/beranda_widget.py (LANGUAGE_PYTHON)
+- /Users/naufalrasydan/Documents/Workspace/Intern BRI/ssa-dashboard/ui/about_widget.py (LANGUAGE_PYTHON)
+</ADDITIONAL_METADATA>

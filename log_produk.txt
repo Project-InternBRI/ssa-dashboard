@@ -1,0 +1,381 @@
+
+=== LOG 2026-06-26 22:58:03.345447 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+
+=== LOG 2026-06-26 22:58:08.227566 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+
+=== LOG 2026-06-26 22:59:26.513921 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+
+=== LOG 2026-06-26 23:01:21.175471 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+
+=== LOG 2026-06-26 23:03:26.891375 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+
+=== LOG 2026-06-26 23:08:41.743986 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+
+=== LOG 2026-06-26 23:12:34.223681 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+
+=== LOG 2026-06-26 23:15:06.852146 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+
+=== LOG 2026-06-26 23:23:56.230039 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-26 23:51:53.516769 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: Commercial (Cashcall) > Rp 25 M S/D 1 T | Segmen: Small      | Count:    24 | Total:    2,339,994.73
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Small      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 00:01:57.950004 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: Commercial (Cashcall) > Rp 25 M S/D 1 T | Segmen: Small      | Count:    24 | Total:    2,339,994.73
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Small      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 10:15:10.612746 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: Commercial (Cashcall) > Rp 25 M S/D 1 T | Segmen: Small      | Count:    24 | Total:    2,339,994.73
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Small      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 10:21:47.318163 ===
+  Produk: (KWL) 1. MENENGAH > Rp 25 M S/D 50 M - Cash Collateral | Segmen: Small      | Count:     9 | Total:      308,141.04
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: Commercial (Cashcall) > Rp 25 M S/D 1 T | Segmen: Small      | Count:    24 | Total:    2,339,994.73
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Small      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Menengah                       | Segmen: Small      | Count:   562 | Total:   74,441,398.58
+  Produk: Menengah Kanwil >Rp.200M sd 500 M | Segmen: Small      | Count:    47 | Total:    7,865,026.83
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 10:36:37.198376 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 10:38:56.295502 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count: 10667 | Total:   75,536,489.75
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Lainnya                        | Segmen: Konsumer   | Count:   524 | Total:       98,930.88
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 10:48:23.390852 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 10:48:53.695064 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 10:49:27.538480 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 10:51:14.771548 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 10:53:43.429508 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 17:10:18.110207 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 17:11:13.808896 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 18:33:41.318922 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 18:34:20.881698 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 18:37:39.325089 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 18:38:39.914782 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 18:58:00.383982 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-27 18:59:26.933386 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
+
+=== LOG 2026-06-28 10:14:02.393575 ===
+  Produk: Briguna Mikro                  | Segmen: Mikro      | Count:  2233 | Total:   10,863,526.62
+  Produk: Briguna Ritel                  | Segmen: Konsumer   | Count:  5966 | Total:  102,123,176.78
+  Produk: KPR                            | Segmen: Konsumer   | Count:   912 | Total:   32,992,913.74
+  Produk: KREDIT MIKRO - KPP             | Segmen: Mikro      | Count:   218 | Total:      119,622.30
+  Produk: KUR Kecil                      | Segmen: Mikro      | Count:  1136 | Total:    1,637,934.26
+  Produk: KUR Mikro                      | Segmen: Mikro      | Count:  4368 | Total:    4,640,106.77
+  Produk: Kecil Komersial                | Segmen: Small      | Count:  9902 | Total:   66,772,331.77
+  Produk: Kredit Mikro - KUR Ritel 2015  | Segmen: Mikro      | Count:   579 | Total:    1,140,160.03
+  Produk: Kupedes                        | Segmen: Mikro      | Count:  8658 | Total:    6,332,884.06
+  Produk: Mikro - Cash Collateral        | Segmen: Mikro      | Count:   122 | Total:       11,950.35
