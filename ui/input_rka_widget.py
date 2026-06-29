@@ -130,22 +130,22 @@ class RKAFilterPopup(QDialog):
         lay.setSpacing(12)
         
         title = QLabel("Filter Data RKA")
-        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #0F172A;")
+        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #0F172A; background: transparent;")
         lay.addWidget(title)
         lay.addSpacing(8)
         
         lbl_p = QLabel("Periode")
-        lbl_p.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B;")
+        lbl_p.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B; background: transparent;")
         self.cb_periode = MultiSelectDropdown(["2026", "2027"])
         self.cb_periode.setCurrentSelections(p)
         
         lbl_kc = QLabel("Kantor Cabang")
-        lbl_kc.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B;")
+        lbl_kc.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B; background: transparent;")
         self.cb_kc = MultiSelectDropdown(DEFAULT_KCS)
         self.cb_kc.setCurrentSelections(kc)
         
         lbl_k = QLabel("Mata Anggaran")
-        lbl_k.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B;")
+        lbl_k.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B; background: transparent;")
         main_kats = []
         for r in TABLE_ROWS:
             if r["is_header"]: main_kats.append(r["label"])
@@ -153,7 +153,7 @@ class RKAFilterPopup(QDialog):
         self.cb_kategori.setCurrentSelections(k)
         
         lbl_s = QLabel("Rincian")
-        lbl_s.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B;")
+        lbl_s.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B; background: transparent;")
         sub_kats = []
         for r in TABLE_ROWS:
             if not r["is_header"]: sub_kats.append(r["label"])
@@ -175,13 +175,13 @@ class RKAFilterPopup(QDialog):
         btn_lay = QHBoxLayout()
         btn_lay.setSpacing(12)
         
-        btn_cancel = QPushButton("Cancel")
+        btn_cancel = QPushButton("Batal")
         btn_cancel.setFixedHeight(36)
         btn_cancel.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         btn_cancel.setStyleSheet("QPushButton { background: #F1F5F9; color: #475569; border: none; border-radius: 18px; font-weight: 600; padding: 0 16px; } QPushButton:hover { background: #E2E8F0; }")
         btn_cancel.clicked.connect(self.reject)
         
-        btn_apply = QPushButton("Apply Filter")
+        btn_apply = QPushButton("Terapkan Filter")
         btn_apply.setFixedHeight(36)
         btn_apply.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         btn_apply.setStyleSheet("QPushButton { background: #2563EB; color: #FFFFFF; border: none; border-radius: 18px; font-weight: 600; padding: 0 16px; } QPushButton:hover { background: #1D4ED8; }")

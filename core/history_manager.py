@@ -115,3 +115,17 @@ def clear_history() -> None:
         )
     except OSError:
         pass
+
+
+def mark_last_exported() -> None:
+    """Tandai proses terakhir sebagai 'exported'."""
+    history = load_history()
+    if history:
+        history[0]["is_exported"] = True
+        try:
+            HISTORY_FILE.write_text(
+                json.dumps(history, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass

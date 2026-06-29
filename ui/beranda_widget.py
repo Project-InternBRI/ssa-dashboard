@@ -449,9 +449,9 @@ class BerandaWidget(QWidget):
             return card
 
         # Blue card
-        c1 = make_ac_card(2, "Upload & Generate", "Unggah file SSA dan proses\\nkonsolidasi data secara otomatis.", "#F0F5FF", "#2563EB", "#FFFFFF", "Mulai Sekarang", "akses_cepat_bg.png", "logo_upload_putih.svg")
+        c1 = make_ac_card(2, "Upload & Generate", "Unggah file SSA dan proses\nkonsolidasi data secara otomatis.", "#F0F5FF", "#2563EB", "#FFFFFF", "Mulai Sekarang", "akses_cepat_bg.png", "logo_upload_putih.svg")
         # Green card
-        c2 = make_ac_card(3, "Preview Tabel", "Lihat hasil konsolidasi\\nper KC dalam bentuk tabel interaktif.", "#F0FDF4", "#16A34A", "#FFFFFF", "Lihat Sekarang", "preview_tabel_bg.png", "bar_chart_putih.svg")
+        c2 = make_ac_card(1, "Input Target RKA", "Masukkan dan kelola data\ntarget RKA per KC dengan cepat.", "#F0FDF4", "#16A34A", "#FFFFFF", "Mulai Input", "preview_tabel_bg.png", "bar_chart_putih.svg")
 
         row.addWidget(c1)
         row.addWidget(c2)
@@ -560,11 +560,11 @@ class BerandaWidget(QWidget):
         h_row.setStyleSheet("background: #F8FAFC; border-bottom: 1px solid #E2E8F0; border-top-left-radius: 12px; border-top-right-radius: 12px;")
         h_lay = QHBoxLayout(h_row)
         h_lay.setContentsMargins(20, 12, 20, 12)
-        h1 = QLabel("AKTIVITAS"); h1.setFixedWidth(180); h1.setStyleSheet("color: #64748B; font-size: 10px; font-weight: bold; border: none;")
-        h2 = QLabel("DETAIL"); h2.setFixedWidth(220); h2.setStyleSheet("color: #64748B; font-size: 10px; font-weight: bold; border: none;")
-        h3 = QLabel("WAKTU"); h3.setFixedWidth(140); h3.setStyleSheet("color: #64748B; font-size: 10px; font-weight: bold; border: none;")
+        h1 = QLabel("AKTIVITAS"); h1.setStyleSheet("color: #64748B; font-size: 10px; font-weight: bold; border: none;")
+        h2 = QLabel("DETAIL"); h2.setStyleSheet("color: #64748B; font-size: 10px; font-weight: bold; border: none;")
+        h3 = QLabel("WAKTU"); h3.setStyleSheet("color: #64748B; font-size: 10px; font-weight: bold; border: none;")
         h4 = QLabel("STATUS"); h4.setStyleSheet("color: #64748B; font-size: 10px; font-weight: bold; border: none;")
-        h_lay.addWidget(h1); h_lay.addWidget(h2); h_lay.addWidget(h3); h_lay.addWidget(h4); h_lay.addStretch()
+        h_lay.addWidget(h1, 4); h_lay.addWidget(h2, 4); h_lay.addWidget(h3, 3); h_lay.addWidget(h4, 2)
         self._act_lay.addWidget(h_row)
         
         self._act_list_lay = QVBoxLayout()
@@ -574,70 +574,7 @@ class BerandaWidget(QWidget):
         self._act_lay.addStretch()
         left.addWidget(self._act_frame)
 
-        # RIGHT: Ringkasan Kinerja
-        right = QVBoxLayout()
-        right.setSpacing(14)
-        r_sec = QHBoxLayout()
-        rt = QLabel("Ringkasan Kinerja")
-        rt.setStyleSheet("font-size: 16px; font-weight: 800; color: #0F2A4A;")
-        rs = QLabel("Hari ini v")
-        rs.setStyleSheet("color: #64748B; font-size: 12px; background: #F1F5F9; padding: 4px 8px; border-radius: 6px;")
-        r_sec.addWidget(rt)
-        r_sec.addStretch()
-        r_sec.addWidget(rs)
-        right.addLayout(r_sec)
-
-        r_card = QFrame()
-        r_card.setStyleSheet("QFrame { background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; }")
-        rc_lay = QVBoxLayout(r_card)
-        rc_lay.setContentsMargins(20, 20, 20, 20)
-        rc_lay.setSpacing(24)
-
-        def make_rk(ic, bg, fg, title, val, stat, stat_clr):
-            ly = QHBoxLayout()
-            il = QLabel(ic)
-            il.setFixedSize(36, 36)
-            il.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            il.setStyleSheet(f"background: {bg}; color: {fg}; font-size: 16px; border-radius: 18px; border: none;")
-            vl = QVBoxLayout()
-            vl.setSpacing(2)
-            t = QLabel(title)
-            t.setStyleSheet("color: #0F2A4A; font-size: 11px; font-weight: bold; border: none;")
-            v = QLabel(val)
-            v.setStyleSheet("color: #0F2A4A; font-size: 18px; font-weight: bold; border: none;")
-            vl.addWidget(t); vl.addWidget(v)
-            s = QLabel(stat)
-            s.setStyleSheet(f"color: {stat_clr}; font-size: 11px; font-weight: bold; border: none;")
-            ly.addWidget(il); ly.addSpacing(12); ly.addLayout(vl); ly.addStretch(); ly.addWidget(s)
-            return ly, v, s
-            
-        self._rk_1_lay, self._rk_1_v, self._rk_1_s = make_rk("📄", "#EFF6FF", "#2563EB", "File Diproses", "0", "0% Selesai", "#2563EB")
-        self._rk_2_lay, self._rk_2_v, self._rk_2_s = make_rk("🏢", "#FEF3C7", "#D97706", "KC Aktif", "0", "Menunggu", "#D97706")
-        self._rk_3_lay, self._rk_3_v, self._rk_3_s = make_rk("✓", "#ECFDF5", "#16A34A", "Data Valid", "0%", "Tidak Ada Error", "#16A34A")
-        self._rk_4_lay, self._rk_4_v, self._rk_4_s = make_rk("🕒", "#F3E8FF", "#9333EA", "Dashboard Terbaru", "—", "—", "#9333EA")
-
-        rc_lay.addLayout(self._rk_1_lay)
-        
-        lin1 = QFrame(); lin1.setFixedHeight(1); lin1.setStyleSheet("background: #F1F5F9; border: none;")
-        rc_lay.addWidget(lin1)
-        
-        rc_lay.addLayout(self._rk_2_lay)
-        
-        lin2 = QFrame(); lin2.setFixedHeight(1); lin2.setStyleSheet("background: #F1F5F9; border: none;")
-        rc_lay.addWidget(lin2)
-        
-        rc_lay.addLayout(self._rk_3_lay)
-        
-        lin3 = QFrame(); lin3.setFixedHeight(1); lin3.setStyleSheet("background: #F1F5F9; border: none;")
-        rc_lay.addWidget(lin3)
-        
-        rc_lay.addLayout(self._rk_4_lay)
-        rc_lay.addStretch()
-
-        right.addWidget(r_card)
-
-        row.addLayout(left, 6)
-        row.addLayout(right, 4)
+        row.addLayout(left)
         return row
 
     # ── REFRESH METODE ──
@@ -728,34 +665,6 @@ class BerandaWidget(QWidget):
                 r4["time"].setText("Terakhir Update, —")
                 r4["dot"].setStyleSheet("color: #94A3B8; font-size: 12px; border: none;")
                 r4["ds"].setText("Belum di-generate")
-                
-        # 5. Update Ringkasan Kinerja
-        if hasattr(self, "_rk_1_v"):
-            self._rk_1_v.setText(str(ready_count))
-            self._rk_1_s.setText(f"{int((ready_count/3)*100)}% Selesai")
-            
-            if history_list:
-                kc = history_list[0].get("jumlah_kc", 0)
-                self._rk_2_v.setText(str(kc))
-                self._rk_2_s.setText("Siap Diproses")
-                self._rk_2_s.setStyleSheet("color: #D97706; font-size: 11px; font-weight: bold; border: none;")
-                
-                status = history_list[0].get("status", "sukses").lower()
-                self._rk_3_v.setText("100%" if status == "sukses" else "0%")
-                self._rk_3_s.setText("Tidak Ada Error" if status == "sukses" else "Terjadi Error")
-                self._rk_3_s.setStyleSheet("color: #16A34A; font-size: 11px; font-weight: bold; border: none;" if status == "sukses" else "color: #DC2626; font-size: 11px; font-weight: bold; border: none;")
-                
-                tgl = history_list[0].get("tanggal_proses", "—")
-                d_part = tgl.split(" ")[0] if " " in tgl else tgl
-                self._rk_4_v.setText("Hari Ini")
-                self._rk_4_s.setText(d_part)
-            else:
-                self._rk_2_v.setText("0")
-                self._rk_2_s.setText("Menunggu")
-                self._rk_3_v.setText("0%")
-                self._rk_3_s.setText("Menunggu Proses")
-                self._rk_4_v.setText("—")
-                self._rk_4_s.setText("—")
 
     def refresh_activity(self, history_list: list | None):
         self._history_list = history_list or []
@@ -793,9 +702,11 @@ class BerandaWidget(QWidget):
         activities = [
             ("Upload File SSA", fn_simpanan, "upload.svg", "#EFF6FF", "#2563EB", "Sukses", ok),
             ("Upload File SSA", fn_pinjaman, "upload.svg", "#EFF6FF", "#2563EB", "Sukses", ok),
-            ("Generate Dashboard", "Proses konsolidasi data", "settings.svg", "#F0FDF4", "#16A34A", "Sukses", ok),
-            ("Export Excel", "Hasil Dashboard.xlsx", "unduh_homepage.svg", "#FFF7ED", "#D97706", "Berhasil", ok)
+            ("Generate Dashboard", "Proses konsolidasi data", "settings.svg", "#F0FDF4", "#16A34A", "Sukses", ok)
         ]
+        
+        if entry.get("is_exported"):
+            activities.append(("Export Excel", "Hasil Dashboard.xlsx", "unduh_homepage.svg", "#FFF7ED", "#D97706", "Berhasil", ok))
 
         for i, (title, detail, icon_name, bg_c, fg_c, status_text, is_ok) in enumerate(activities):
             row = QWidget()
@@ -812,17 +723,15 @@ class BerandaWidget(QWidget):
             a_txt = QLabel(title)
             a_txt.setStyleSheet("color: #0F2A4A; font-size: 11px; font-weight: bold; border: none;")
             a_lay.addWidget(a_ic); a_lay.addSpacing(8); a_lay.addWidget(a_txt); a_lay.addStretch()
-            w_a = QWidget(); w_a.setLayout(a_lay); w_a.setFixedWidth(180)
+            w_a = QWidget(); w_a.setLayout(a_lay)
 
             # Detail
             d_txt = QLabel(detail)
             d_txt.setStyleSheet("color: #64748B; font-size: 11px; border: none;")
-            d_txt.setFixedWidth(220)
 
             # Waktu
             w_txt = QLabel(tgl_str)
             w_txt.setStyleSheet("color: #64748B; font-size: 11px; border: none;")
-            w_txt.setFixedWidth(140)
 
             # Status
             s_txt = QLabel(status_text if is_ok else "Gagal")
@@ -833,10 +742,10 @@ class BerandaWidget(QWidget):
             s_lay.addWidget(s_txt); s_lay.addStretch()
             w_s = QWidget(); w_s.setLayout(s_lay)
 
-            rl.addWidget(w_a)
-            rl.addWidget(d_txt)
-            rl.addWidget(w_txt)
-            rl.addWidget(w_s)
+            rl.addWidget(w_a, 4)
+            rl.addWidget(d_txt, 4)
+            rl.addWidget(w_txt, 3)
+            rl.addWidget(w_s, 2)
             self._act_list_lay.addWidget(row)
 
     def _show_empty_activity(self):

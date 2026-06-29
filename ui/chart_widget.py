@@ -39,9 +39,37 @@ plt.rcParams.update({
 
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QFrame, QScrollArea, QPushButton,
-                               QGridLayout, QGraphicsDropShadowEffect, QListView)
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QCursor, QColor
+                               QGridLayout, QGraphicsDropShadowEffect, QListView,
+                               QMenu, QFileDialog, QMessageBox)
+from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtGui import QCursor, QColor, QAction
+from ui.custom_dropdown import CustomDropdown
+from ui.toast_notification import ToastManager
+from datetime import datetime
+
+class ExportWorker(QThread):
+    finished_success = Signal(str)
+    finished_error = Signal(str)
+    
+    def __init__(self, fmt, data_dict, output_path, metadata, parent=None):
+        super().__init__(parent)
+        self.fmt = fmt
+        self.data_dict = data_dict
+        self.output_path = output_path
+        self.metadata = metadata
+        
+    def run(self):
+        try:
+            from core.exporter_visual import export_excel_visual, export_pdf_visual, export_pptx_visual
+            if self.fmt == "excel":
+                export_excel_visual(self.data_dict, self.output_path, self.metadata)
+            elif self.fmt == "pdf":
+                export_pdf_visual(self.data_dict, self.output_path, self.metadata)
+            elif self.fmt == "pptx":
+                export_pptx_visual(self.data_dict, self.output_path, self.metadata)
+            self.finished_success.emit(self.output_path)
+        except Exception as e:
+            self.finished_error.emit(str(e))
 from ui.custom_dropdown import CustomDropdown
 
 PALETTE = ["#1E3A5F", "#2563EB", "#60A5FA", "#16A34A", "#34D399",
@@ -198,6 +226,34 @@ class ChartWidget(QWidget):
         """)
         btn_refresh.clicked.connect(self._draw_all)
         lay.addWidget(btn_refresh)
+        
+        # Export Button
+        self.btn_export = QPushButton("Export")
+        self.btn_export.setFixedHeight(36)
+        self.btn_export.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_export.setStyleSheet("""
+            QPushButton { background: #2563EB; color: #FFFFFF; border-radius: 8px;
+                padding: 0 16px; font-weight: 600; font-size: 13px; border: none; }
+            QPushButton:hover { background: #1D4ED8; }
+        """)
+        
+        self.export_menu = QMenu(self.btn_export)
+        self.export_menu.setStyleSheet("""
+            QMenu { background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 8px; padding: 4px 0px; }
+            QMenu::item { padding: 8px 24px; color: #1E293B; font-weight: 500; font-size: 13px; }
+            QMenu::item:selected { background: #EFF6FF; color: #2563EB; }
+        """)
+        
+        act_excel = self.export_menu.addAction("📊  Export Excel (.xlsx)")
+        act_pdf = self.export_menu.addAction("📄  Export PDF (.pdf)")
+        act_pptx = self.export_menu.addAction("📑  Export PowerPoint (.pptx)")
+        
+        act_excel.triggered.connect(lambda: self._trigger_export("excel"))
+        act_pdf.triggered.connect(lambda: self._trigger_export("pdf"))
+        act_pptx.triggered.connect(lambda: self._trigger_export("pptx"))
+        
+        self.btn_export.setMenu(self.export_menu)
+        lay.addWidget(self.btn_export)
 
         self._combo_produk.currentTextChanged.connect(self._draw_all)
         self._combo_kc.currentTextChanged.connect(self._draw_all)
@@ -234,6 +290,57 @@ class ChartWidget(QWidget):
         el.addSpacing(16)
         el.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
         return empty
+
+    def _trigger_export(self, fmt: str):
+        if not self._data or "Total AH Gunsar" not in self._data:
+            QMessageBox.warning(self, "Export Gagal", "Belum ada data untuk di-export.")
+            return
+            
+        metadata = {}
+        try:
+            metadata["periode"] = self._data["Total AH Gunsar"]["periode_list"][-1]
+        except:
+            metadata["periode"] = "Terbaru"
+            
+        now = datetime.now()
+        metadata["tanggal"] = now.strftime("%d %b %Y")
+        metadata["hari"] = ""
+        metadata["jam"] = now.strftime("%H:%M")
+        
+        default_name = f"Dashboard_AH_Gunsar_{metadata['periode']}_{now.strftime('%Y%m%d_%H%M%S')}"
+        if fmt == "excel":
+            ext = ".xlsx"
+            filter_str = "Excel Files (*.xlsx)"
+        elif fmt == "pdf":
+            ext = ".pdf"
+            filter_str = "PDF Files (*.pdf)"
+        else:
+            ext = ".pptx"
+            filter_str = "PowerPoint Files (*.pptx)"
+            
+        default_name += ext
+        
+        path, _ = QFileDialog.getSaveFileName(self, f"Simpan {fmt.upper()}", default_name, filter_str)
+        if not path:
+            return
+            
+        self.btn_export.setText(f"Menyiapkan {fmt.upper()}...")
+        self.btn_export.setEnabled(False)
+        
+        self._export_worker = ExportWorker(fmt, self._data, path, metadata, self)
+        self._export_worker.finished_success.connect(self._on_export_success)
+        self._export_worker.finished_error.connect(self._on_export_error)
+        self._export_worker.start()
+        
+    def _on_export_success(self, path):
+        self.btn_export.setText("Export")
+        self.btn_export.setEnabled(True)
+        ToastManager.show(self.window(), f"File berhasil disimpan ke:\n{path}", "success", 4000)
+        
+    def _on_export_error(self, err_msg):
+        self.btn_export.setText("Export")
+        self.btn_export.setEnabled(True)
+        QMessageBox.critical(self, "Export Gagal", f"Terjadi kesalahan saat meng-export:\\n\\n{err_msg}")
 
     # ── DATA LOAD ────────────────────────────────────────────────
     def load_data(self, data_dict: dict):
@@ -323,20 +430,41 @@ class ChartWidget(QWidget):
 
         colors_map = {
             "tabungan": "#2563EB", "giro": "#16A34A",
-            "deposito": "#D97706", "total dpk": "#8B5CF6",
+            "deposito": "#D97706", "dana pihak ketiga": "#8B5CF6",
         }
 
         kc_data = self._data.get(kc_total, {})
-        plotted = False
+        
+        tabungan_vals = [0] * len(periodes)
+        giro_vals = [0] * len(periodes)
+        deposito_vals = [0] * len(periodes)
+        dpk_vals = [0] * len(periodes)
+        
         for row in _get_rows(kc_data):
             lbl = row.get("label", "").strip().lower()
-            if row.get("row_type") in ("subtotal", "total") and any(
-                    k in lbl for k in ["tabungan", "giro", "deposito", "dpk"]):
-                vals = [row["values"].get(p, 0) / 1e6 for p in periodes]
-                name = row.get("label", "").replace("Total ", "")
-                clr  = next((v for k, v in colors_map.items() if k in lbl), "#2563EB")
-                lw   = 2.5 if "dpk" in lbl else 1.5
-                ax.plot(periodes, vals, color=clr, linewidth=lw,
+            vals = row.get("values", {})
+            if "dana pihak ketiga" in lbl:
+                for i, p in enumerate(periodes):
+                    dpk_vals[i] += vals.get(p, 0) / 1e6
+            elif "tabungan" in lbl:
+                for i, p in enumerate(periodes):
+                    tabungan_vals[i] += vals.get(p, 0) / 1e6
+            elif "giro" in lbl:
+                for i, p in enumerate(periodes):
+                    giro_vals[i] += vals.get(p, 0) / 1e6
+            elif "deposito" in lbl:
+                for i, p in enumerate(periodes):
+                    deposito_vals[i] += vals.get(p, 0) / 1e6
+
+        plotted = False
+        for name, vals, key in [
+            ("Tabungan", tabungan_vals, "tabungan"),
+            ("Giro", giro_vals, "giro"),
+            ("Deposito", deposito_vals, "deposito"),
+            ("Total DPK", dpk_vals, "dana pihak ketiga")
+        ]:
+            if any(v != 0 for v in vals):
+                ax.plot(periodes, vals, color=colors_map[key], linewidth=2.5 if key == "dana pihak ketiga" else 1.5,
                         marker="o", markersize=4, label=name)
                 plotted = True
 
@@ -370,7 +498,7 @@ class ChartWidget(QWidget):
             # Cari baris TOTAL DPK
             dpk = 0.0
             for r in _get_rows(kc_data):
-                if "total dpk" in r.get("label", "").lower():
+                if "dana pihak ketiga" in r.get("label", "").lower():
                     vals = r.get("values", {})
                     if vals:
                         dpk = list(vals.values())[-1] / 1e6
@@ -378,7 +506,7 @@ class ChartWidget(QWidget):
             # Cari baris TOTAL PINJAMAN
             pin = 0.0
             for r in _get_rows(kc_data):
-                if "total pinjaman" in r.get("label", "").lower():
+                if r.get("label", "").strip().lower() == "pinjaman":
                     vals = r.get("values", {})
                     if vals:
                         pin = list(vals.values())[-1] / 1e6
@@ -423,7 +551,7 @@ class ChartWidget(QWidget):
             kc_data = self._data[kc]
             val = 0.0
             for r in _get_rows(kc_data):
-                if "total dpk" in r.get("label", "").lower():
+                if "dana pihak ketiga" in r.get("label", "").lower():
                     val = r.get("mtd", 0) / 1e6
                     break
             mtds.append(val)
@@ -463,14 +591,31 @@ class ChartWidget(QWidget):
         vals   = []
         colors = ["#2563EB", "#16A34A", "#D97706"]
 
-        for produk in ["Tabungan", "Giro", "Deposito"]:
-            for r in _get_rows(kc_data):
-                if r.get("label", "").strip().lower() == f"total {produk.lower()}":
-                    v = list(r.get("values", {}).values())
-                    if v:
-                        labels.append(produk)
-                        vals.append(abs(v[-1]) / 1e6)
-                    break
+        tabungan_val = 0
+        giro_val = 0
+        deposito_val = 0
+        
+        for r in _get_rows(kc_data):
+            lbl = r.get("label", "").strip().lower()
+            if "tabungan" in lbl:
+                v = list(r.get("values", {}).values())
+                if v: tabungan_val += abs(v[-1]) / 1e6
+            elif "giro" in lbl:
+                v = list(r.get("values", {}).values())
+                if v: giro_val += abs(v[-1]) / 1e6
+            elif "deposito" in lbl:
+                v = list(r.get("values", {}).values())
+                if v: deposito_val += abs(v[-1]) / 1e6
+                
+        if tabungan_val > 0:
+            labels.append("Tabungan")
+            vals.append(tabungan_val)
+        if giro_val > 0:
+            labels.append("Giro")
+            vals.append(giro_val)
+        if deposito_val > 0:
+            labels.append("Deposito")
+            vals.append(deposito_val)
 
         if not vals or sum(vals) == 0:
             ax.text(0.5, 0.5, "Tidak ada data DPK",
@@ -499,7 +644,7 @@ class ChartWidget(QWidget):
         data = []
         for kc in kcs:
             for r in _get_rows(self._data[kc]):
-                if "total dpk" in r.get("label", "").lower():
+                if "dana pihak ketiga" in r.get("label", "").lower():
                     v = list(r.get("values", {}).values())
                     data.append((kc, abs(v[-1]) / 1e6 if v else 0))
                     break
@@ -550,7 +695,7 @@ class ChartWidget(QWidget):
         for i, kc in enumerate(kcs):
             vals = []
             for r in _get_rows(self._data[kc]):
-                if "total dpk" in r.get("label", "").lower():
+                if "dana pihak ketiga" in r.get("label", "").lower():
                     vals = [r["values"].get(p, 0) / 1e6 for p in periodes]
                     break
             if vals:

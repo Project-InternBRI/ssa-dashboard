@@ -437,6 +437,8 @@ class PreviewTableWidget(QWidget):
 
         try:
             export_to_excel(self._data, path)
+            from core.history_manager import mark_last_exported
+            mark_last_exported()
             ToastManager.show(self.window(),
                               f"File berhasil disimpan: {path}", "success")
         except Exception as e:

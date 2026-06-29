@@ -423,7 +423,11 @@ def _sum_saldo(df: pd.DataFrame, wilayah: str, label: str,
     AND _wilayah=wilayah AND _label=label
     Hasil dalam JUTA RUPIAH.
     """
-    mask = df['_wilayah'] == wilayah
+    if wilayah == '__TOTAL__':
+        mask = df['_wilayah'].isin(WILAYAH_ORDER)
+    else:
+        mask = df['_wilayah'] == wilayah
+        
     if label is not None and '_label' in df.columns:
         mask &= df['_label'] == label
     if jenis:
@@ -459,7 +463,10 @@ def _sum_baki(df: pd.DataFrame, wilayah: str, tanggal: pd.Timestamp | None,
 # ────────────────────────────────────────────────────────────────────
 
 def build_pinjaman_rows(df_pinj, wilayah, label, baki_col):
-    mask_kc = (df_pinj['_wilayah'] == wilayah)
+    if wilayah == '__TOTAL__':
+        mask_kc = df_pinj['_wilayah'].isin(WILAYAH_ORDER)
+    else:
+        mask_kc = (df_pinj['_wilayah'] == wilayah)
     mask_tgl = (df_pinj['_label'] == label) if '_label' in df_pinj.columns else (df_pinj['_tanggal'] == label)
     df = df_pinj[mask_kc & mask_tgl].copy()
     
@@ -569,42 +576,25 @@ def build_pinjaman_rows(df_pinj, wilayah, label, baki_col):
     return res
 
 
-PRODUK_MIKRO = ['kupedes', 'kur mikro', 'briguna karya', 'briguna purna']
-PRODUK_SMALL = ['kur kecil', 'kredit kemitraan', 'retel']
-PRODUK_KONSUMER = ['briguna ritel', 'kpp', 'kpr', 'kkb', 'brguna umum', 'pangan', 'kredit pegawai']
-
-def classify_produk(produk_str: str) -> str | None:
-    if not isinstance(produk_str, str):
-        return None
-    p = produk_str.strip().lower()
-    for keyword in PRODUK_MIKRO:
-        if keyword in p:
-            return 'Mikro'
-    for keyword in PRODUK_SMALL:
-        if keyword in p:
-            return 'Small'
-    for keyword in PRODUK_KONSUMER:
-        if keyword in p:
-            if 'lainnya' in p:
-                return 'EXCLUDE'
-            return 'Konsumer'
-    return None
-
-def classify_segmen_2025(value: str) -> str | None:
-    if not isinstance(value, str):
-        return None
-    val = value.strip().lower()
+def classify_pinjaman_exact(row) -> str | None:
     import re
-    val = re.sub(r'\s+', ' ', val)
+    def norm(s):
+        return re.sub(r'[\s\-]', '', str(s)).lower()
+        
+    produk = norm(row.get('Produk', ''))
+    segmen = norm(row.get('SEGMEN_2025', ''))
     
-    if val in ['consumer', 'konsumer', 'retail consumer', 'consumer banking']:
-        return 'Konsumer'
-    elif val in ['micro', 'mikro', 'micro banking']:
+    mikro_prods = ['brigunamikro', 'kupedes', 'kurmikro', 'kreditmikrokpp', 'mikrocashcollateral', 'kreditmikrokurritel2015']
+    if produk in mikro_prods and segmen == 'micro':
         return 'Mikro'
-    elif val in ['small', 'sme', 'small business']:
+        
+    if produk == 'kecilkomersial' and segmen == 'small':
         return 'Small'
-    elif val in ['medium', 'commercial', 'commercial banking']:
-        return 'EXCLUDE'
+        
+    konsumer_prods = ['brigunaritel', 'kpr']
+    if produk in konsumer_prods and segmen == 'consumer':
+        return 'Konsumer'
+        
     return None
 
 def prepare_pinjaman(df: pd.DataFrame) -> pd.DataFrame:
@@ -620,11 +610,7 @@ def prepare_pinjaman(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = df[col].astype(str).str.strip()
             
     if 'Produk' in df.columns and 'SEGMEN_2025' in df.columns:
-        df['segmen_dashboard_produk'] = df['Produk'].apply(classify_produk)
-        df['segmen_dashboard_2025'] = df['SEGMEN_2025'].apply(classify_segmen_2025)
-        df['segmen_dashboard'] = df['segmen_dashboard_produk'].combine_first(df['segmen_dashboard_2025'])
-        df.loc[df['segmen_dashboard_2025'] == 'EXCLUDE', 'segmen_dashboard'] = None
-        df.loc[df['segmen_dashboard_produk'] == 'EXCLUDE', 'segmen_dashboard'] = None
+        df['segmen_dashboard'] = df.apply(classify_pinjaman_exact, axis=1)
     
     # 2. Konversi Baki Debet ke float
     def parse_num(v):
@@ -671,10 +657,12 @@ def hitung_pinjaman_kc(df_pinj, kc_keyword, tanggal):
     if 'Nama Cabang' not in df_pinj.columns or 'Month, Day, Year of Periode' not in df_pinj.columns:
         return _zero_result()
 
-    # Filter KC (substring, case-insensitive)
-    mask_kc = df_pinj['Nama Cabang'].str.lower().str.contains(
-        kc_keyword.lower(), na=False
-    )
+    # Filter KC
+    if kc_keyword == '__TOTAL__':
+        mask_kc = df_pinj['_wilayah'].isin(WILAYAH_ORDER)
+    else:
+        mask_kc = df_pinj['_wilayah'] == kc_keyword
+        
     # Filter tanggal
     mask_tgl = (df_pinj['_label'] == tanggal)
     df = df_pinj[mask_kc & mask_tgl].copy()
@@ -727,11 +715,11 @@ def hitung_pinjaman_kc(df_pinj, kc_keyword, tanggal):
         'npl'              : npl_total,
         'npl_pct'          : safe_pct(npl_total, total_p),
         'npl_mikro'        : npl_mikro,
-        'npl_mikro_pct'    : safe_pct(npl_mikro, total_p),
+        'npl_mikro_pct'    : safe_pct(npl_mikro, mikro),
         'npl_small'        : npl_small,
-        'npl_small_pct'    : safe_pct(npl_small, total_p),
+        'npl_small_pct'    : safe_pct(npl_small, small),
         'npl_konsumer'     : npl_konsumer,
-        'npl_konsumer_pct' : safe_pct(npl_konsumer, total_p),
+        'npl_konsumer_pct' : safe_pct(npl_konsumer, konsumer),
         'recovery_ec'         : None,
         'recovery_ec_mikro'   : None,
         'recovery_ec_small'   : None,
@@ -784,27 +772,42 @@ def _build_rows(wilayah: str, df_s: pd.DataFrame, df_p: pd.DataFrame,
     rows = []
     periode_labels = [p[0] for p in periodes_sorted]
 
-    # ── BLOK 1: Dana Pihak Ketiga (Ritel) ───────────────────────
-    rows.append(row('header', 'Dana Pihak Ketiga', lambda t: 0))
+    # Helper khusus untuk menghitung DPK (memasukkan Micro khusus Krekot dan Roxi)
+    def _get_dpk(wil, tgl, jenis):
+        if wil == '__TOTAL__':
+            total_val = 0
+            for w in WILAYAH_ORDER:
+                val = _sum_saldo(df_s, w, tgl, jenis, 'Ritel', saldo_col)
+                if w.lower() in ['krekot', 'roxi', 'roxy']:
+                    val += _sum_saldo(df_s, w, tgl, jenis, 'Micro', saldo_col)
+                total_val += val
+            return total_val
+        else:
+            val = _sum_saldo(df_s, wil, tgl, jenis, 'Ritel', saldo_col)
+            if wil.lower() in ['krekot', 'roxi', 'roxy']:
+                val += _sum_saldo(df_s, wil, tgl, jenis, 'Micro', saldo_col)
+            return val
 
-    rows.append(row('data', 'Tabungan',
-        lambda t: _sum_saldo(df_s, wilayah, t, 'Tabungan', 'Ritel', saldo_col)))
+    # ── BLOK 1: Dana Pihak Ketiga (Ritel + Micro khusus cabang tertentu) ──
+    rows.append(row('header_value', 'Dana Pihak Ketiga',
+        lambda t: _get_dpk(wilayah, t, 'Tabungan') + _get_dpk(wilayah, t, 'Giro') + _get_dpk(wilayah, t, 'Deposito')
+    ))
 
-    rows.append(row('data', 'Giro',
-        lambda t: _sum_saldo(df_s, wilayah, t, 'Giro', 'Ritel', saldo_col)))
-
-    rows.append(row('data', 'Deposito',
-        lambda t: _sum_saldo(df_s, wilayah, t, 'Deposito', 'Ritel', saldo_col)))
+    rows.append(row('data', 'Tabungan', lambda t: _get_dpk(wilayah, t, 'Tabungan')))
+    rows.append(row('data', 'Giro', lambda t: _get_dpk(wilayah, t, 'Giro')))
+    rows.append(row('data', 'Deposito', lambda t: _get_dpk(wilayah, t, 'Deposito')))
 
     # CASA = Tabungan + Giro
     rows.append(row('bold', 'CASA',
-        lambda t: (
-            _sum_saldo(df_s, wilayah, t, 'Tabungan', 'Ritel', saldo_col) +
-            _sum_saldo(df_s, wilayah, t, 'Giro', 'Ritel', saldo_col)
-        )))
+        lambda t: _get_dpk(wilayah, t, 'Tabungan') + _get_dpk(wilayah, t, 'Giro')
+    ))
 
     # DPK Korporasi (Wholesale)
-    rows.append(row('header', 'DPK Korporasi', lambda t: 0))
+    rows.append(row('header_value', 'DPK Korporasi',
+        lambda t: (
+            _sum_saldo(df_s, wilayah, t, 'Giro', 'Wholesale', saldo_col) +
+            _sum_saldo(df_s, wilayah, t, 'Deposito', 'Wholesale', saldo_col)
+        )))
 
     rows.append(row('data', 'Giro',
         lambda t: _sum_saldo(df_s, wilayah, t, 'Giro', 'Wholesale', saldo_col)))
@@ -1230,13 +1233,9 @@ def process_files(
     # ── 10. TOTAL AH GUNSAR ───────────────────────────────────────
     cb(90, "Menghitung Total AH Gunsar...")
 
-    # Duplikasi df dengan wilayah diganti '__TOTAL__' untuk aggregasi global
-    df_s_total = df_s.copy()
-    df_s_total['_wilayah'] = '__TOTAL__'
-    df_p_total = df_p.copy()
-    df_p_total['_wilayah'] = '__TOTAL__'
-
-    total_rows = _build_rows('__TOTAL__', df_s_total, df_p_total,
+    # Hitung total dari data asli tanpa menimpa _wilayah
+    # karena kita butuh info wilayah (cabang) untuk filter spesifik per cabang (seperti Krekot/Roxi)
+    total_rows = _build_rows('__TOTAL__', df_s, df_p,
                              periodes_sorted, saldo_col, baki_col)
 
     _attach_growth(total_rows, periodes_sorted)

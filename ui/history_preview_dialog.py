@@ -262,77 +262,123 @@ class HistoryPreviewDialog(QDialog):
             QHeaderView.ResizeMode.Interactive)
         tbl.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
         tbl.setVerticalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
-        tbl.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        tbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        tbl.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        tbl.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        tbl.setStyleSheet("""
+            QTableWidget::item:hover { background-color: transparent; }
+            QTableWidget::item:selected { background-color: transparent; }
+        """)
 
-        # Warna header default
-        header_bg = QColor("#1E3A5F")
+        # Warna style yang mirip dengan Excel Export
+        header_bg = QColor("#1E3A8A")  # Biru tua elegan
         header_fg = QColor("#FFFFFF")
-        section_bg = QColor("#0F2A4A")
-        subhdr_bg  = QColor("#1D4ED8")
         alt_a = QColor("#FFFFFF")
         alt_b = QColor("#F8FAFC")
-        bold_bg = QColor("#EFF6FF")
+        bold_bg = QColor("#EFF6FF")    # Biru sangat muda untuk row total
+        bold_labels = ['Dana Pihak Ketiga', 'CASA', 'DPK Korporasi', 'Pinjaman', 'SML', 'SML %', 'NPL', 'NPL %']
 
         bold_font = QFont()
         bold_font.setBold(True)
+        
+        italic_font = QFont()
+        italic_font.setItalic(True)
 
         # Populate
         for r_idx, row_data in enumerate(all_rows):
             for c_idx in range(max_cols):
                 val = row_data[c_idx] if c_idx < len(row_data) else None
 
-                # Format value
+                # Format value ke Rupiah / format angka Indonesia
                 if val is None:
                     text = ""
-                elif isinstance(val, float):
-                    text = f"{val:,.2f}" if val != int(val) else f"{int(val):,}"
-                elif isinstance(val, int):
-                    text = f"{val:,}"
+                elif isinstance(val, (int, float)):
+                    if isinstance(val, float) and val != int(val):
+                        s = f"{val:,.2f}"
+                    else:
+                        s = f"{int(val):,}"
+                    text = s.replace(',', 'X').replace('.', ',').replace('X', '.')
                 else:
                     text = str(val)
 
                 item = QTableWidgetItem(text)
-                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled)  # Hapus ItemIsSelectable agar hover tidak mengubah warna
 
-                # Style baris pertama (header)
-                if r_idx < 2:
-                    item.setBackground(QBrush(header_bg))
-                    item.setForeground(QBrush(header_fg))
+                if r_idx == 0:
+                    item.setBackground(QBrush(QColor("#17365D")))
+                    item.setForeground(QBrush(QColor("white")))
                     item.setFont(bold_font)
-                    item.setTextAlignment(
-                        Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                elif r_idx == 1:
+                    item.setBackground(QBrush(QColor("#F0F8FF")))
+                    item.setForeground(QBrush(QColor("#1E293B")))
+                    item.setFont(italic_font)
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                elif r_idx == 2:
+                    item.setBackground(QBrush(QColor("#17365D")))
+                    item.setForeground(QBrush(QColor("white")))
+                    item.setFont(bold_font)
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                elif r_idx == 3:
+                    item.setBackground(QBrush(QColor("#2563EB")))
+                    item.setForeground(QBrush(QColor("white")))
+                    item.setFont(bold_font)
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
                 else:
-                    # Cek apakah baris "section" (semua sel kosong kecuali kol 0)
-                    non_empty = [v for v in row_data if v not in (None, "")]
-                    if len(non_empty) == 1 and c_idx == 0:
-                        item.setBackground(QBrush(section_bg))
-                        item.setForeground(QBrush(header_fg))
+                    is_bold = (row_data[0] in bold_labels) if len(row_data) > 0 else False
+                    
+                    if is_bold:
+                        item.setBackground(QBrush(bold_bg))
                         item.setFont(bold_font)
                     else:
                         bg = alt_a if r_idx % 2 == 0 else alt_b
                         item.setBackground(QBrush(bg))
-                        item.setForeground(QBrush(QColor("#1E293B")))
+                    
+                    item.setForeground(QBrush(QColor("#1E293B")))
 
                     if c_idx == 0:
-                        item.setTextAlignment(
-                            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                        item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                     else:
-                        item.setTextAlignment(
-                            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                        item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
                 tbl.setItem(r_idx, c_idx, item)
+
+        # --- Lakukan Pergabungan Sel (Merge/Span) ---
+        if n_rows > 0:
+            tbl.setSpan(0, 0, 1, max_cols)  # Judul
+        if n_rows > 1:
+            tbl.setSpan(1, 0, 1, max_cols)  # Sub-judul
+            
+        if n_rows > 3:
+            tbl.setSpan(2, 0, 2, 1)  # Mata Anggaran merge ke bawah
+            
+            # Deteksi span untuk Posisi, RKA, dll di baris ke-2 (index 2)
+            row2 = all_rows[2]
+            c = 1
+            while c < max_cols:
+                val = row2[c]
+                if val not in (None, ""):
+                    nxt = c + 1
+                    while nxt < max_cols and row2[nxt] in (None, ""):
+                        nxt += 1
+                    span_len = nxt - c
+                    if span_len > 1:
+                        tbl.setSpan(2, c, 1, span_len)
+                    c = nxt
+                else:
+                    c += 1
 
         # Kolom pertama lebih lebar
         tbl.setColumnWidth(0, 200)
         for c in range(1, max_cols):
             tbl.setColumnWidth(c, 110)
 
-        # Freeze panes simulasi: baris pertama di header
-        tbl.horizontalHeader().setSectionsMovable(False)
-
-        # Header kolom (angka)
-        tbl.setHorizontalHeaderLabels([str(i + 1) for i in range(max_cols)])
+        # Sembunyikan header angka (1, 2, 3...) yang membuat jelek
+        tbl.horizontalHeader().hide()
+        
+        # Sembunyikan baris 1 ("Diekspor pada...") sesuai permintaan
+        if n_rows > 1:
+            tbl.setRowHidden(1, True)
 
         wrapper = QWidget()
         lay = QVBoxLayout(wrapper)
@@ -355,15 +401,19 @@ class HistoryPreviewDialog(QDialog):
             return
 
         try:
-            from openpyxl import Workbook
-            wb_new = Workbook()
-            ws_new = wb_new.active
-            ws_new.title = sheet_name
-
-            rows_data = self._sheets.get(sheet_name, [])
-            for row in rows_data:
-                ws_new.append([v if v is not None else "" for v in row])
-
+            import shutil
+            import openpyxl
+            
+            src = str(self._excel_path)
+            # Salin file asli agar format, warna, merge, dan grafik terbawa
+            shutil.copy2(src, dest)
+            
+            # Buka file hasil salinan dan hapus sheet yang tidak dipilih
+            wb_new = openpyxl.load_workbook(dest)
+            for sn in wb_new.sheetnames:
+                if sn != sheet_name:
+                    del wb_new[sn]
+                    
             wb_new.save(dest)
             if HAS_TOAST:
                 ToastManager.show(

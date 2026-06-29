@@ -16,8 +16,8 @@ from PySide6.QtGui import QIcon, QAction, QPixmap, QColor, QFont, QCursor, QPain
 from PySide6.QtSvg import QSvgRenderer
 
 from ui.beranda_widget import BerandaWidget
-from ui.chart_widget import ChartWidget
 from ui.upload_widget import UploadWidget
+from ui.input_rka_widget import InputRKAWidget
 from ui.preview_table import PreviewTableWidget
 from ui.history_widget import HistoryWidget
 from ui.input_rka_widget import InputRKAWidget
@@ -223,12 +223,10 @@ class MainWindow(QMainWindow):
 
         sb_lay.addStretch()
 
-        # Nav items
         nav_config = [
             ("home.svg", "BERANDA"),
-            ("dashboard.svg", "DASHBOARD"),
-            ("upload.svg", "UPLOAD"),
             ("input.svg", "INPUT RKA"),
+            ("upload.svg", "UPLOAD"),
             ("table.svg", "PREVIEW"),
             ("history.svg", "RIWAYAT"),
         ]
@@ -241,12 +239,6 @@ class MainWindow(QMainWindow):
             sb_lay.addSpacing(4)
 
         sb_lay.addStretch()
-        
-        self.btn_setting = NavItem("settings.svg", "SETTING")
-        self.btn_setting.mouseReleaseEvent = lambda e: self.switch_page(6)
-        self._nav_items.append(self.btn_setting)
-        sb_lay.addWidget(self.btn_setting, 0, Qt.AlignmentFlag.AlignHCenter)
-        sb_lay.addSpacing(16)
 
         # Versi
         ver = QLabel("v1.2")
@@ -294,26 +286,16 @@ class MainWindow(QMainWindow):
         # Stacked pages
         self.stacked_widget = QStackedWidget()
         self.page_beranda = BerandaWidget()
-        self.page_dashboard = ChartWidget()
         self.page_upload = UploadWidget()
         self.page_rka = InputRKAWidget()
         self.page_preview = PreviewTableWidget()
         self.page_history = HistoryWidget()
-        
-        self.page_setting = QWidget()
-        lbl_set = QLabel("Pengaturan Aplikasi (Segera Hadir)", self.page_setting)
-        lbl_set.setStyleSheet("font-size: 16px; color: #64748B;")
-        lbl_set.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        vlay_set = QVBoxLayout(self.page_setting)
-        vlay_set.addWidget(lbl_set)
 
         self.stacked_widget.addWidget(self.page_beranda)
-        self.stacked_widget.addWidget(self.page_dashboard)
-        self.stacked_widget.addWidget(self.page_upload)
         self.stacked_widget.addWidget(self.page_rka)
+        self.stacked_widget.addWidget(self.page_upload)
         self.stacked_widget.addWidget(self.page_preview)
         self.stacked_widget.addWidget(self.page_history)
-        self.stacked_widget.addWidget(self.page_setting)
 
         content_layout.addWidget(self.header_bar)
         content_layout.addWidget(self.stacked_widget, 1)
@@ -325,7 +307,6 @@ class MainWindow(QMainWindow):
 
         # ── CONNECTIONS ───────────────────────────────────────────
         self.page_beranda.navigate_to.connect(self.switch_page)
-        self.page_dashboard.navigate_to.connect(self.switch_page)
         self.page_preview.navigate_to.connect(self.switch_page)
         self.page_history.navigate_to.connect(self.switch_page)
         self.page_upload.generate_finished.connect(self._on_generate_finished)
@@ -345,9 +326,8 @@ class MainWindow(QMainWindow):
 
     def switch_page(self, index: int):
         _titles = [
-            "Beranda", "Dashboard", "Upload & Generate",
-            "Input RKA", "Preview Tabel", "Riwayat Generate",
-            "Pengaturan Aplikasi"
+            "Beranda", "Input RKA", "Upload & Generate",
+            "Preview Tabel", "Riwayat Generate"
         ]
         for i, item in enumerate(self._nav_items):
             item.set_active(i == index)
@@ -366,13 +346,12 @@ class MainWindow(QMainWindow):
     def _on_generate_finished(self, data_dict: dict, elapsed: float = 0.0):
         self._data_dict = data_dict
         self.page_preview.load_data(data_dict)
-        self.page_dashboard.load_data(data_dict)
         self.page_history.refresh()
         self._refresh_beranda()
 
         stats = data_dict.get('__stats__', {})
         self._popup = SuccessPopup(parent=self, stats=stats, elapsed=elapsed)
-        self._popup.view_preview.connect(lambda: self.switch_page(4))
+        self._popup.view_preview.connect(lambda: self.switch_page(3))
         self._popup.export_excel.connect(self.page_preview._export)
         self._popup.center_on_parent()
         self._popup.show_animated()
@@ -381,7 +360,6 @@ class MainWindow(QMainWindow):
     def _on_data_cleared(self):
         self._data_dict = None
         self.page_preview.show_empty_cleared()
-        self.page_dashboard.load_data({})
         self._refresh_beranda()
 
     # ─── REFRESH BERANDA ──────────────────────────────────────────

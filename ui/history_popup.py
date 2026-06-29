@@ -140,9 +140,11 @@ class HistoryPopup(QDialog):
                     activities = [
                         ("Upload File SSA", fn_simpanan, "upload.svg", "#EFF6FF", "#2563EB", "Sukses", ok),
                         ("Upload File SSA", fn_pinjaman, "upload.svg", "#EFF6FF", "#2563EB", "Sukses", ok),
-                        ("Generate Dashboard", "Proses konsolidasi data", "settings.svg", "#F0FDF4", "#16A34A", "Sukses", ok),
-                        ("Export Excel", "Hasil Dashboard.xlsx", "unduh_homepage.svg", "#FFF7ED", "#D97706", "Berhasil", ok)
+                        ("Generate Dashboard", "Proses konsolidasi data", "settings.svg", "#F0FDF4", "#16A34A", "Sukses", ok)
                     ]
+                    
+                    if entry.get("is_exported"):
+                        activities.append(("Export Excel", "Hasil Dashboard.xlsx", "unduh_homepage.svg", "#FFF7ED", "#D97706", "Berhasil", ok))
 
                     for title, detail, icon_name, bg_c, fg_c, status_text, is_ok in activities:
                         row_w = QWidget()

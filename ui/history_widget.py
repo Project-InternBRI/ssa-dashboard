@@ -12,15 +12,93 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QFrame, QPushButton, QScrollArea,
-    QFileDialog,
+    QFileDialog, QLineEdit, QComboBox
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QPoint
 from PySide6.QtGui import QCursor
 
 from core.history_manager import (
     load_history, delete_history_entry, clear_history)
 from ui.toast_notification import ToastManager
 from ui.confirm_popup import ConfirmPopup
+from PySide6.QtWidgets import QDialog, QGraphicsDropShadowEffect
+from PySide6.QtGui import QColor
+from ui.custom_dropdown import CustomDropdown
+import datetime
+
+class HistoryFilterPopup(QDialog):
+    def __init__(self, current_month, current_year, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        self.init_ui(current_month, current_year)
+        
+    def init_ui(self, m, y):
+        main_lay = QVBoxLayout(self)
+        main_lay.setContentsMargins(10, 10, 10, 10)
+        
+        container = QFrame(self)
+        container.setStyleSheet("QFrame#container { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; }")
+        container.setObjectName("container")
+        container.setMinimumWidth(250)
+        
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(20)
+        shadow.setColor(QColor(0, 0, 0, 30))
+        shadow.setOffset(0, 5)
+        container.setGraphicsEffect(shadow)
+        
+        lay = QVBoxLayout(container)
+        lay.setContentsMargins(24, 24, 24, 24)
+        lay.setSpacing(12)
+        
+        title = QLabel("Filter Riwayat")
+        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #0F172A; background: transparent;")
+        lay.addWidget(title)
+        lay.addSpacing(8)
+        
+        lbl_month = QLabel("Bulan")
+        lbl_month.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B; background: transparent;")
+        lay.addWidget(lbl_month)
+        
+        months = ["Semua Bulan", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+        self.cb_month = CustomDropdown(months, self)
+        self.cb_month.setCurrentText(m)
+        lay.addWidget(self.cb_month)
+        
+        lbl_year = QLabel("Tahun")
+        lbl_year.setStyleSheet("font-size: 12px; font-weight: bold; color: #64748B; background: transparent;")
+        lay.addWidget(lbl_year)
+        
+        cur_year = datetime.datetime.now().year
+        years = ["Semua Tahun"] + [str(yr) for yr in range(cur_year-2, cur_year+3)]
+        self.cb_year = CustomDropdown(years, self)
+        self.cb_year.setCurrentText(y)
+        lay.addWidget(self.cb_year)
+        
+        lay.addSpacing(12)
+        
+        btn_lay = QHBoxLayout()
+        btn_lay.setSpacing(12)
+        
+        btn_cancel = QPushButton("Batal")
+        btn_cancel.setFixedHeight(36)
+        btn_cancel.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        btn_cancel.setStyleSheet("QPushButton { background: #F1F5F9; color: #475569; border: none; border-radius: 18px; font-weight: bold; font-size: 13px; } QPushButton:hover { background: #E2E8F0; }")
+        btn_cancel.clicked.connect(self.reject)
+        
+        btn_apply = QPushButton("Terapkan Filter")
+        btn_apply.setFixedHeight(36)
+        btn_apply.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        btn_apply.setStyleSheet("QPushButton { background: #2563EB; color: #FFFFFF; border: none; border-radius: 18px; font-weight: bold; font-size: 13px; } QPushButton:hover { background: #1D4ED8; }")
+        btn_apply.clicked.connect(self.accept)
+        
+        btn_lay.addWidget(btn_cancel)
+        btn_lay.addWidget(btn_apply)
+        
+        lay.addLayout(btn_lay)
+        main_lay.addWidget(container)
 
 
 class HistoryWidget(QWidget):
@@ -28,6 +106,8 @@ class HistoryWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.filter_month = "Semua Bulan"
+        self.filter_year = "Semua Tahun"
         self._init_ui()
 
     # ─── INIT UI ──────────────────────────────────────────────────
@@ -46,8 +126,25 @@ class HistoryWidget(QWidget):
         self._main_lay.setContentsMargins(32, 28, 32, 48)
         self._main_lay.setSpacing(16)
 
-        # Header dengan tombol hapus semua
+        # Header dengan pencarian, filter, dan tombol hapus semua
         hdr = QHBoxLayout()
+        hdr.setSpacing(12)
+        
+        self._search_input = QLineEdit()
+        self._search_input.setPlaceholderText("Cari tanggal (contoh: 29)...")
+        self._search_input.setFixedHeight(34)
+        self._search_input.setFixedWidth(220)
+        self._search_input.setStyleSheet("QLineEdit { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 17px; padding: 0 16px; color: #0F172A; font-size: 13px; } QLineEdit:focus { border: 1px solid #3B82F6; }")
+        
+        self._btn_filter = QPushButton("Filter")
+        self._btn_filter.setFixedHeight(36)
+        self._btn_filter.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self._btn_filter.setStyleSheet("""
+            QPushButton { background: #2563EB; border: none; border-radius: 18px; color: #FFFFFF; padding: 0 20px; font-weight: 600; }
+            QPushButton:hover { background: #1D4ED8; }
+        """)
+        self._btn_filter.clicked.connect(self.open_filter_popup)
+        
         self._btn_del_all = QPushButton("Hapus Semua")
         self._btn_del_all.setFixedHeight(34)
         self._btn_del_all.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -55,13 +152,15 @@ class HistoryWidget(QWidget):
         self._btn_del_all.setStyleSheet("""
             QPushButton {
                 background: #FEE2E2; color: #DC2626; border: none;
-                border-radius: 6px; padding: 0 16px; font-weight: bold; font-size: 13px;
+                border-radius: 17px; padding: 0 16px; font-weight: bold; font-size: 13px;
             }
             QPushButton:hover { background: #FECACA; }
         """)
         self._btn_del_all.clicked.connect(self._confirm_delete_all)
         self._btn_del_all.hide()
 
+        hdr.addWidget(self._search_input)
+        hdr.addWidget(self._btn_filter)
         hdr.addStretch()
         hdr.addWidget(self._btn_del_all)
         self._main_lay.addLayout(hdr)
@@ -74,6 +173,19 @@ class HistoryWidget(QWidget):
 
         scroll.setWidget(content)
         root.addWidget(scroll)
+
+    def open_filter_popup(self):
+        popup = HistoryFilterPopup(self.filter_month, self.filter_year, self)
+        
+        # Position popup relative to the button
+        pos = self._btn_filter.mapToGlobal(self._btn_filter.rect().bottomLeft())
+        # Offset to align nicely
+        popup.move(pos.x() - 10, pos.y() + 5)
+        
+        if popup.exec() == QDialog.DialogCode.Accepted:
+            self.filter_month = popup.cb_month.currentText()
+            self.filter_year = popup.cb_year.currentText()
+            self.refresh()
 
     # ─── REFRESH ──────────────────────────────────────────────────
     def refresh(self):
@@ -89,9 +201,62 @@ class HistoryWidget(QWidget):
             return
 
         self._btn_del_all.show()
+        
+        from collections import defaultdict
+        grouped = defaultdict(lambda: defaultdict(list))
+        
+        search_txt = self._search_input.text().lower().strip()
+        filter_month = self.filter_month
+        filter_year = self.filter_year
+        
         for idx, entry in enumerate(history):
-            card = self._make_card(entry, idx)
-            self._list_area.addWidget(card)
+            tgl_full = entry.get("tanggal_proses", "")
+            if not tgl_full:
+                continue
+            
+            try:
+                if " " in tgl_full:
+                    d_part, t_part = tgl_full.split(" ")
+                    y, m, d = d_part.split("-")
+                    months = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+                    month_name = months[int(m)]
+                    month_year_key = f"{month_name} {y}"
+                    date_key = f"{int(d)} {month_name[:3]} {y}"
+                else:
+                    month_year_key = "Lainnya"
+                    date_key = tgl_full
+                    month_name = ""
+                    y = ""
+            except:
+                month_year_key = "Lainnya"
+                date_key = tgl_full
+                month_name = ""
+                y = ""
+            
+            if search_txt and search_txt not in date_key.lower():
+                continue
+            if filter_month != "Semua Bulan" and filter_month != month_name:
+                continue
+            if filter_year != "Semua Tahun" and filter_year != y:
+                continue
+            
+            grouped[month_year_key][date_key].append((idx, entry))
+
+        for my_key, dates in grouped.items():
+            # Month Header
+            my_lbl = QLabel(my_key)
+            my_lbl.setStyleSheet("font-size: 18px; font-weight: 800; color: #0F2A4A; margin-top: 16px; margin-bottom: 4px;")
+            self._list_area.addWidget(my_lbl)
+            
+            for d_key, runs in dates.items():
+                # Date Header
+                dh_lbl = QLabel(d_key)
+                dh_lbl.setStyleSheet("font-size: 14px; font-weight: 700; color: #64748B; margin-top: 8px; margin-bottom: 4px;")
+                self._list_area.addWidget(dh_lbl)
+                
+                for run_idx, (idx, entry) in enumerate(runs):
+                    card = self._make_card(entry, idx)
+                    self._list_area.addWidget(card)
 
     # ─── EMPTY STATE ──────────────────────────────────────────────
     def _show_empty(self):
