@@ -109,7 +109,7 @@ class PreviewTableWidget(QWidget):
         btn_gen.clicked.connect(lambda: self.navigate_to.emit(2))
 
         # Tombol Export Excel
-        self._btn_export = QPushButton("Export Excel")
+        self._btn_export = QPushButton("Export Semua")
         self._btn_export.setFixedHeight(36)
         self._btn_export.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._btn_export.setEnabled(False)
@@ -121,7 +121,21 @@ class PreviewTableWidget(QWidget):
         """)
         self._btn_export.clicked.connect(self._export)
 
+        # Tombol Export Sheet Ini
+        self._btn_export_sheet = QPushButton("Export Sheet Ini")
+        self._btn_export_sheet.setFixedHeight(36)
+        self._btn_export_sheet.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self._btn_export_sheet.setEnabled(False)
+        self._btn_export_sheet.setStyleSheet("""
+            QPushButton { background: #2563EB; color: #FFFFFF; border: none;
+                border-radius: 8px; padding: 0 16px; font-weight: bold; font-size: 13px; }
+            QPushButton:hover { background: #1D4ED8; }
+            QPushButton:disabled { background: #CBD5E1; color: #FFFFFF; }
+        """)
+        self._btn_export_sheet.clicked.connect(self._export_sheet)
+
         lay.addWidget(btn_gen)
+        lay.addWidget(self._btn_export_sheet)
         lay.addWidget(self._btn_export)
         return fr
 
@@ -167,6 +181,7 @@ class PreviewTableWidget(QWidget):
         self._toolbar.show()
         self._tabs.show()
         self._btn_export.setEnabled(True)
+        self._btn_export_sheet.setEnabled(True)
 
         # Buat tab per KC — Total AH Gunsar terakhir
         kc_names = [k for k in data_dict if k not in ("Total AH Gunsar", "__stats__")]
@@ -188,6 +203,7 @@ class PreviewTableWidget(QWidget):
         self._tabs.clear()
         self._tabs.hide()
         self._btn_export.setEnabled(False)
+        self._btn_export_sheet.setEnabled(False)
 
         # Rebuild empty widget dengan pesan khusus
         # Hapus empty state lama
@@ -429,16 +445,74 @@ class PreviewTableWidget(QWidget):
             ToastManager.show(self.window(), "Tidak ada data untuk dieksport.", "warning")
             return
 
+        from core.exporter import get_default_export_filename, get_unique_path
+        import os
+        from pathlib import Path
+        
+        base_name = get_default_export_filename(self._data, "AH Gunsar")
+        downloads = str(Path.home() / "Downloads")
+        default_path = get_unique_path(os.path.join(downloads, base_name))
+        
+        options = QFileDialog.Option.DontConfirmOverwrite
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export Excel", "Dashboard_SSA.xlsx",
-            "Excel Files (*.xlsx)")
+            self, "Export Excel", default_path,
+            "Excel Files (*.xlsx)", options=options)
+            
         if not path:
             return
 
         try:
+            from core.exporter import export_to_excel
             export_to_excel(self._data, path)
             from core.history_manager import mark_last_exported
             mark_last_exported()
+            ToastManager.show(self.window(),
+                              f"File berhasil disimpan: {path}", "success")
+        except Exception as e:
+            ToastManager.show(self.window(), f"Gagal export: {e}", "error")
+
+    def _export_sheet(self):
+        if not self._data:
+            ToastManager.show(self.window(), "Tidak ada data untuk dieksport.", "warning")
+            return
+
+        idx = self._tabs.currentIndex()
+        if idx < 0:
+            return
+            
+        kc_name = self._tabs.tabText(idx)
+        # Tab text is usually kc_short, we need to find the actual kc_name from data keys
+        actual_kc_name = kc_name
+        for k, v in self._data.items():
+            if v.get("kc_short", k)[:20] == kc_name:
+                actual_kc_name = k
+                break
+
+        from core.exporter import get_default_export_filename, get_unique_path
+        import os
+        from pathlib import Path
+        
+        base_name = get_default_export_filename(self._data, actual_kc_name)
+        downloads = str(Path.home() / "Downloads")
+        default_path = get_unique_path(os.path.join(downloads, base_name))
+        
+        options = QFileDialog.Option.DontConfirmOverwrite
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Sheet", default_path,
+            "Excel Files (*.xlsx)", options=options)
+            
+        if not path:
+            return
+
+        try:
+            # Export ONLY the specific sheet
+            # So we create a dict with just this KC and any __stats__ if needed
+            export_data = {actual_kc_name: self._data[actual_kc_name]}
+            if "__stats__" in self._data:
+                export_data["__stats__"] = self._data["__stats__"]
+                
+            from core.exporter import export_to_excel
+            export_to_excel(export_data, path)
             ToastManager.show(self.window(),
                               f"File berhasil disimpan: {path}", "success")
         except Exception as e:

@@ -872,90 +872,191 @@ def _build_rows(wilayah: str, df_s: pd.DataFrame, df_p: pd.DataFrame,
     return rows
 
 
-def _attach_growth(rows: list[dict],
-                   periodes_sorted: list[tuple]) -> list[dict]:
-    """
-    Tambahkan kolom MTD, DTD, YOY, YTD ke setiap baris data.
-    periodes_sorted: [(label, timestamp), ...] lama ke baru
-    """
+TIPE_BARIS_TERBALIK = {
+    'SML', 'SML %', 'SML > Mikro', 'Mikro %',
+    'SML > Small', 'Small %', 'SML > Konsumer', 'Konsumer %',
+    'NPL', 'NPL %', 'NPL > Mikro', 'NPL > Small',
+    'NPL > Konsumer',
+    'Mikro % NPL', 'Small % NPL', 'Konsumer % NPL'
+}
+
+TIPE_GROWTH_TERBALIK = TIPE_BARIS_TERBALIK
+
+def tentukan_periode_referensi(periode_list, tanggal_terbaru):
+    from dateutil.relativedelta import relativedelta
+
+    hasil = {
+        'terbaru'  : tanggal_terbaru,
+        'mtd_ref'  : None,
+        'dtd_ref'  : None,
+        'yoy_ref'  : None,
+        'ytd_ref'  : None,
+    }
+
+    if not periode_list or not tanggal_terbaru:
+        return hasil
+
+    sorted_list = sorted(periode_list)
+    try:
+        idx_terbaru = sorted_list.index(tanggal_terbaru)
+    except ValueError:
+        return hasil
+
+    if idx_terbaru > 0:
+        hasil['dtd_ref'] = sorted_list[idx_terbaru - 1]
+
+    bulan_sebelumnya = tanggal_terbaru - relativedelta(months=1)
+    target_bulan = bulan_sebelumnya.month
+    target_tahun = bulan_sebelumnya.year
+    kandidat_mtd = [
+        t for t in sorted_list
+        if t.month == target_bulan and t.year == target_tahun
+    ]
+    if kandidat_mtd:
+        hasil['mtd_ref'] = max(kandidat_mtd)
+
+    target_bulan_yoy = tanggal_terbaru.month
+    target_tahun_yoy = tanggal_terbaru.year - 1
+    kandidat_yoy = [
+        t for t in sorted_list
+        if t.month == target_bulan_yoy and t.year == target_tahun_yoy
+    ]
+    if kandidat_yoy:
+        hasil['yoy_ref'] = max(kandidat_yoy)
+
+    target_tahun_ytd = tanggal_terbaru.year - 1
+    kandidat_ytd = [
+        t for t in sorted_list
+        if t.month == 12 and t.year == target_tahun_ytd
+    ]
+    if kandidat_ytd:
+        hasil['ytd_ref'] = max(kandidat_ytd)
+
+    return hasil
+
+def hitung_pencapaian_rka(nama_baris, nilai_terbaru, rka):
+    if not nilai_terbaru or not rka or rka == 0:
+        return None
+    if nama_baris in TIPE_BARIS_TERBALIK:
+        return round(rka / nilai_terbaru, 6) if nilai_terbaru != 0 else None
+    else:
+        return round(nilai_terbaru / rka, 6)
+
+def hitung_growth(nama_baris, nilai_terbaru, nilai_ref):
+    if nilai_terbaru is None or nilai_ref is None:
+        return None
+    
+    # Kondisi khusus Recovery EC: YOY = Terbaru
+    if "Recovery" in nama_baris and nilai_ref == 'YOY_SPECIAL':
+        return nilai_terbaru
+    
+    try:
+        selisih = float(nilai_terbaru) - float(nilai_ref)
+    except (ValueError, TypeError):
+        return None
+        
+    if nama_baris in TIPE_GROWTH_TERBALIK:
+        return -selisih
+    return selisih
+
+def hitung_semua_growth_dan_rka(data_per_periode, rka_values,
+                                 periode_refs, nama_baris):
+    if not periode_refs['terbaru']:
+        return {'pencapaian_rka': None, 'mtd': None, 'dtd': None, 'yoy': None, 'ytd': None}
+
+    terbaru_label  = format_label(periode_refs['terbaru'])
+    dtd_label      = format_label(periode_refs['dtd_ref']) if periode_refs['dtd_ref'] else None
+    mtd_label      = format_label(periode_refs['mtd_ref']) if periode_refs['mtd_ref'] else None
+    yoy_label      = format_label(periode_refs['yoy_ref']) if periode_refs['yoy_ref'] else None
+    ytd_label      = format_label(periode_refs['ytd_ref']) if periode_refs['ytd_ref'] else None
+
+    val_terbaru = data_per_periode.get(terbaru_label)
+    val_dtd_ref = data_per_periode.get(dtd_label) if dtd_label else None
+    val_mtd_ref = data_per_periode.get(mtd_label) if mtd_label else None
+    val_yoy_ref = data_per_periode.get(yoy_label) if yoy_label else None
+    val_ytd_ref = data_per_periode.get(ytd_label) if ytd_label else None
+
+    rka = None
+    if rka_values:
+        rka = rka_values.get(terbaru_label) or rka_values.get(f'Jun-{str(periode_refs["terbaru"].year)[2:]}')
+        
+    yoy_calc = val_yoy_ref
+    if "Recovery" in nama_baris:
+        yoy_calc = 'YOY_SPECIAL'
+        
+    if "%" in nama_baris:
+        val_mtd_ref = None # Sesuai aturan: Baris % tidak memiliki MTD yang bermakna
+
+    return {
+        'pencapaian_rka' : hitung_pencapaian_rka(nama_baris, val_terbaru, rka),
+        'mtd'            : hitung_growth(nama_baris, val_terbaru, val_mtd_ref),
+        'dtd'            : hitung_growth(nama_baris, val_terbaru, val_dtd_ref),
+        'yoy'            : hitung_growth(nama_baris, val_terbaru, yoy_calc),
+        'ytd'            : hitung_growth(nama_baris, val_terbaru, val_ytd_ref),
+    }
+
+def _attach_growth(rows: list[dict], periodes_sorted: list[tuple]) -> list[dict]:
     if not periodes_sorted:
-        for r in rows:
-            r.update({'mtd': 0, 'dtd': 0, 'yoy': 0, 'ytd': 0})
         return rows
-
-    tgl_terbaru_lbl, tgl_terbaru = periodes_sorted[-1]
-
-    # Cari periode sebelumnya (untuk MTD)
-    tgl_mtd = periodes_sorted[-2][1] if len(periodes_sorted) >= 2 else None
-    tgl_mtd_lbl = periodes_sorted[-2][0] if len(periodes_sorted) >= 2 else None
-
-    # Cari Desember tahun sebelumnya (untuk DTD & YTD)
-    tgl_des = None
-    tgl_des_lbl = None
-    if tgl_terbaru:
-        for lbl, tgl in reversed(periodes_sorted[:-1]):
-            if tgl and tgl.month == 12 and tgl.year == tgl_terbaru.year - 1:
-                tgl_des = tgl
-                tgl_des_lbl = lbl
-                break
-
-    # Cari periode sama tahun lalu (untuk YOY)
-    tgl_yoy = None
-    tgl_yoy_lbl = None
-    if tgl_terbaru:
-        for lbl, tgl in reversed(periodes_sorted[:-1]):
-            if (tgl and tgl.month == tgl_terbaru.month
-                    and tgl.year == tgl_terbaru.year - 1
-                    and abs(tgl.day - tgl_terbaru.day) <= 5):
-                tgl_yoy = tgl
-                tgl_yoy_lbl = lbl
-                break
-
+        
+    periode_list = [t for l, t in periodes_sorted if t is not None]
+    if not periode_list:
+        return rows
+        
+    tanggal_terbaru = max(periode_list)
+    periode_refs = tentukan_periode_referensi(periode_list, tanggal_terbaru)
+    
+    # Save periode refs dynamically so exporter can use them if needed
+    rows.append({'row_type': '__metadata__', 'periode_refs': periode_refs})
+    
     for r in rows:
-        if r.get('row_type') in ('separator',):
-            r.update({'mtd': 0, 'dtd': 0, 'yoy': 0, 'ytd': 0})
+        if r.get('row_type') in ('separator', '__metadata__'):
             continue
-
+            
+        nama_baris = r.get('label', '')
         vals = r.get('values', {})
-        v_now = vals.get(tgl_terbaru_lbl, 0) or 0
-        v_mtd = vals.get(tgl_mtd_lbl, 0) or 0 if tgl_mtd_lbl else 0
-        v_des = vals.get(tgl_des_lbl, 0) or 0 if tgl_des_lbl else 0
-        v_yoy = vals.get(tgl_yoy_lbl, 0) or 0 if tgl_yoy_lbl else 0
-
-        def to_f(x):
-            try:
-                return float(x)
-            except (ValueError, TypeError):
-                return 0.0
-
-        def diff(v1, v2):
-            if v1 == "-" and v2 == "-":
-                return "-"
-            return to_f(v1) - to_f(v2)
-
-        r['mtd'] = diff(v_now, v_mtd)
-        r['dtd'] = diff(v_now, v_des)
-        r['yoy'] = diff(v_now, v_yoy)
-        r['ytd'] = diff(v_now, v_des)  # YTD = sama dengan DTD
-
+        
+        # Calculate growth using the helper (RKA is passed as None here, handled in exporter)
+        res = hitung_semua_growth_dan_rka(vals, None, periode_refs, nama_baris)
+        r.update(res)
+        
     return rows
 
-
 def _growth_labels(periodes_sorted: list[tuple]) -> dict:
-    """Buat label untuk header kolom growth."""
     labels = {
         'mtd_label': 'MTD',
         'dtd_label': 'DTD',
         'yoy_label': 'YOY',
         'ytd_label': 'YTD',
     }
-    if len(periodes_sorted) >= 2:
-        terbaru_lbl, terbaru_dt = periodes_sorted[-1]
-        prev_lbl, prev_dt = periodes_sorted[-2]
-        if terbaru_dt and prev_dt:
-            t_str = f"{terbaru_dt.day} {BULAN_SINGKAT[terbaru_dt.month]} {str(terbaru_dt.year)[-2:]}"
-            p_str = f"{BULAN_SINGKAT[prev_dt.month]}-{str(prev_dt.year)[-2:]}"
-            labels['mtd_label'] = f"MTD ({p_str} vs {t_str})"
+    
+    periode_list = [t for l, t in periodes_sorted if t is not None]
+    if not periode_list:
+        return labels
+        
+    tanggal_terbaru = max(periode_list)
+    refs = tentukan_periode_referensi(periode_list, tanggal_terbaru)
+    
+    try:
+        from core.file_reader import BULAN_SINGKAT
+    except ImportError:
+        BULAN_SINGKAT = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+    
+    terbaru_dt = refs['terbaru']
+    if terbaru_dt:
+        t_str = f"{terbaru_dt.day} {BULAN_SINGKAT[terbaru_dt.month]} {str(terbaru_dt.year)[-2:]}"
+        t_str_dtd = f"{terbaru_dt.day} {BULAN_SINGKAT[terbaru_dt.month]}"
+        
+        mtd_ref = refs['mtd_ref']
+        if mtd_ref:
+            p_str = f"{BULAN_SINGKAT[mtd_ref.month]} {str(mtd_ref.year)[-2:]}"
+            labels['mtd_label'] = f"MTD\n({p_str} vs {t_str})"
+            
+        dtd_ref = refs['dtd_ref']
+        if dtd_ref:
+            d_str = f"{dtd_ref.day} {BULAN_SINGKAT[dtd_ref.month]}"
+            labels['dtd_label'] = f"DTD\n({d_str} vs {t_str_dtd})"
+            
     return labels
 
 

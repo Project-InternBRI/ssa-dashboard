@@ -419,7 +419,7 @@ class HistoryWidget(QWidget):
         """)
         btn_export.setEnabled(file_exists)
         btn_export.clicked.connect(
-            lambda _, p=output_path: self._export_file(p))
+            lambda _, e=entry: self._export_file(e))
 
         # Tombol Hapus
         btn_hapus = QPushButton("Hapus")
@@ -453,22 +453,42 @@ class HistoryWidget(QWidget):
         dlg = HistoryPreviewDialog(output_path, entry, parent=self.window())
         dlg.exec()
 
-    def _export_file(self, src_path: str):
-        """Salin file Excel ke lokasi yang dipilih user."""
+    def _export_file(self, entry: dict):
+        """Salin file Excel ke lokasi yang dipilih user tanpa replace."""
+        src_path = entry.get("output_path", "")
         src = Path(src_path)
         if not src.exists():
             ToastManager.show(self.window(), "File tidak ditemukan.", "error")
             return
 
+        import json
+        import os
+        from core.exporter import get_default_export_filename, get_unique_path
+        
+        json_path = entry.get("json_path", "")
+        data = {}
+        try:
+            if Path(json_path).exists():
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+        except:
+            pass
+
+        base_name = get_default_export_filename(data, "AH Gunsar")
+        downloads = str(Path.home() / "Downloads")
+        default_path = get_unique_path(os.path.join(downloads, base_name))
+
+        options = QFileDialog.Option.DontConfirmOverwrite
         dest, _ = QFileDialog.getSaveFileName(
-            self, "Simpan File Excel", src.name, "Excel Files (*.xlsx)")
+            self, "Simpan File Excel", default_path, "Excel Files (*.xlsx)", options=options)
+            
         if not dest:
             return
 
         try:
             shutil.copy2(str(src), dest)
             ToastManager.show(
-                self.window(), "File berhasil diekspor.", "success")
+                self.window(), f"File berhasil disimpan: {dest}", "success")
         except Exception as e:
             ToastManager.show(
                 self.window(), f"Gagal ekspor: {e}", "error")

@@ -388,15 +388,40 @@ class HistoryPreviewDialog(QDialog):
 
     # ─── EXPORT ───────────────────────────────────────────────────
     def _export_current_sheet(self):
-        """Export sheet yang sedang aktif ke file Excel baru."""
+        """Export sheet yang sedang aktif ke file Excel baru secara otomatis."""
         if not self._tabs.count():
             return
 
         sheet_name = self._tabs.tabText(self._tabs.currentIndex())
+        
+        import json
+        import os
+        from pathlib import Path
+        from core.exporter import get_default_export_filename, get_unique_path
+        
+        json_path = self._entry.get("json_path", "")
+        data = {}
+        try:
+            if Path(json_path).exists():
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+        except:
+            pass
+            
+        actual_kc_name = sheet_name
+        for k, v in data.items():
+            if v.get("kc_short", k)[:20] == sheet_name:
+                actual_kc_name = k
+                break
+                
+        base_name = get_default_export_filename(data, actual_kc_name)
+        downloads = str(Path.home() / "Downloads")
+        default_path = get_unique_path(os.path.join(downloads, base_name))
+        
+        options = QFileDialog.Option.DontConfirmOverwrite
         dest, _ = QFileDialog.getSaveFileName(
-            self, "Export Sheet",
-            f"Dashboard_{sheet_name}.xlsx",
-            "Excel Files (*.xlsx)")
+            self, "Export Sheet", default_path, "Excel Files (*.xlsx)", options=options)
+            
         if not dest:
             return
 
@@ -405,10 +430,8 @@ class HistoryPreviewDialog(QDialog):
             import openpyxl
             
             src = str(self._excel_path)
-            # Salin file asli agar format, warna, merge, dan grafik terbawa
             shutil.copy2(src, dest)
             
-            # Buka file hasil salinan dan hapus sheet yang tidak dipilih
             wb_new = openpyxl.load_workbook(dest)
             for sn in wb_new.sheetnames:
                 if sn != sheet_name:
@@ -418,13 +441,13 @@ class HistoryPreviewDialog(QDialog):
             if HAS_TOAST:
                 ToastManager.show(
                     self.window(),
-                    f"Sheet '{sheet_name}' berhasil diekspor.", "success")
+                    f"Sheet '{sheet_name}' berhasil disimpan: {dest}", "success")
         except Exception as e:
             if HAS_TOAST:
                 ToastManager.show(self.window(), f"Gagal ekspor: {e}", "error")
 
     def _export_all(self):
-        """Copy file Excel asli ke lokasi baru."""
+        """Copy file Excel asli ke lokasi baru tanpa replace otomatis."""
         src = Path(self._excel_path)
         if not src.exists():
             if HAS_TOAST:
@@ -432,16 +455,37 @@ class HistoryPreviewDialog(QDialog):
                     self.window(), "File tidak ditemukan.", "error")
             return
 
+        import json
+        import os
+        from pathlib import Path
+        from core.exporter import get_default_export_filename, get_unique_path
+        
+        json_path = self._entry.get("json_path", "")
+        data = {}
+        try:
+            if Path(json_path).exists():
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+        except:
+            pass
+
+        base_name = get_default_export_filename(data, "AH Gunsar")
+        downloads = str(Path.home() / "Downloads")
+        default_path = get_unique_path(os.path.join(downloads, base_name))
+
+        options = QFileDialog.Option.DontConfirmOverwrite
         dest, _ = QFileDialog.getSaveFileName(
-            self, "Simpan File Excel", src.name, "Excel Files (*.xlsx)")
+            self, "Simpan File Excel", default_path, "Excel Files (*.xlsx)", options=options)
+            
         if not dest:
             return
 
         try:
+            import shutil
             shutil.copy2(str(src), dest)
             if HAS_TOAST:
                 ToastManager.show(
-                    self.window(), "File berhasil diekspor.", "success")
+                    self.window(), f"File berhasil disimpan: {dest}", "success")
         except Exception as e:
             if HAS_TOAST:
                 ToastManager.show(

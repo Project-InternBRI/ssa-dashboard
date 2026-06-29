@@ -1,4 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
+import platform
+
+os_name = platform.system()
+if os_name == 'Darwin':
+    icon_path = 'assets/icons/icon_app.icns'
+else:
+    icon_path = 'assets/icons/icon_app.ico'
 
 block_cipher = None
 
@@ -26,7 +33,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='SSA_Dashboard',
+    name='BRIVIEW',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -38,5 +45,14 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/icons/app_icon.ico'
+    icon=icon_path
 )
+
+if os_name == 'Darwin':
+    app = BUNDLE(
+        exe,
+        name='BRIVIEW.app',
+        icon=icon_path,
+        bundle_identifier='com.bri.briview',
+    )
+

@@ -28,6 +28,45 @@ from core.file_reader import BULAN_PANJANG, BULAN_SINGKAT
 def _fill(hex_color: str) -> PatternFill:
     return PatternFill("solid", fgColor=hex_color.lstrip("#"))
 
+def get_default_export_filename(data: dict, kc_name: str = "AH Gunsar") -> str:
+    date_str = ""
+    try:
+        kc_data = data.get(kc_name)
+        if not kc_data:
+            kc_data = data.get("Total AH Gunsar")
+        if not kc_data:
+            kc_data = next(iter(data.values()))
+            
+        rows = kc_data.get("rows", [])
+        meta_row = next((r for r in rows if r.get('row_type') == '__metadata__'), None)
+        if meta_row:
+            terbaru_dt = meta_row['periode_refs']['terbaru']
+            from core.file_reader import BULAN_PANJANG
+            if terbaru_dt:
+                date_str = f" {terbaru_dt.day} {BULAN_PANJANG[terbaru_dt.month]} {terbaru_dt.year}"
+    except Exception:
+        pass
+        
+    base_name = f"Dashboard {kc_name}{date_str}.xlsx"
+    if kc_name == "AH Gunsar":
+        # Specific naming for Export All as requested
+        base_name = f"Dashboard AH Gunsar{date_str}.xlsx"
+        
+    return base_name
+
+def get_unique_path(base_path: str) -> str:
+    import os
+    if not os.path.exists(base_path):
+        return base_path
+        
+    name, ext = os.path.splitext(base_path)
+    counter = 1
+    while True:
+        new_path = f"{name} ({counter}){ext}"
+        if not os.path.exists(new_path):
+            return new_path
+        counter += 1
+
 
 def _font(bold=False, italic=False, size=10,
           color="1E293B", name="Arial") -> Font:
@@ -579,30 +618,74 @@ def _write_header_value(ws, row: int, row_data: dict, rka_vals: list,
 
     # Pencapaian RKA
     c = ws.cell(row=row, column=COL_PENCAP)
-    col_pos_ltr = get_column_letter(COL_POS_END)
-    col_rka_ltr = get_column_letter(COL_RKA_START + rka_bulan_idx)
-    c.value = f'=IF({col_rka_ltr}{row}="","",IF({col_rka_ltr}{row}=0,"",{col_pos_ltr}{row}/{col_rka_ltr}{row}))'
-    c.number_format = "0.00%"
+    label = row_data.get("label", "")
+    
+    from core.processor import hitung_pencapaian_rka
+    val_terbaru = None
+    if periode_list:
+        terbaru_label = periode_list[-1]
+        val_terbaru = row_data.get("values", {}).get(terbaru_label)
+        
+    val_rka = rka_vals[rka_bulan_idx] if rka_vals and rka_bulan_idx < len(rka_vals) else None
+    
+    try:
+        val_terbaru = float(val_terbaru) if val_terbaru is not None else None
+    except:
+        val_terbaru = None
+        
+    try:
+        val_rka = float(val_rka) if val_rka is not None else None
+    except:
+        val_rka = None
+        
+    pencap = hitung_pencapaian_rka(label, val_terbaru, val_rka)
+    
     c.fill = fill_obj
-    c.font = font_obj
     c.alignment = _align(h="right", v="center")
     c.border = bdr
+    c.number_format = "0.00%"
+    
+    if pencap is not None:
+        c.value = pencap
+        if pencap >= 1.00:
+            c.font = _font(color="16A34A") # Hijau
+        elif pencap >= 0.80:
+            c.font = _font(color="D97706") # Kuning
+        else:
+            c.font = _font(color="DC2626") # Merah
+    else:
+        c.value = ""
+        c.font = font_obj
 
     # Growth (kalau ada)
+    is_pct = '%' in label
     for col, key in [(COL_MTD, "mtd"), (COL_DTD, "dtd"),
                      (COL_YOY, "yoy"), (COL_YTD, "ytd")]:
-        val = row_data.get(key, 0)
+        val = row_data.get(key)
         c = ws.cell(row=row, column=col)
-        try:
-            c.value = float(val)
-        except (ValueError, TypeError):
-            c.value = val if val == "-" else ""
-
-        c.number_format = "#,##0;-#,##0;\"-\""
         c.fill = fill_obj
-        c.font = font_obj
         c.alignment = _align(h="right", v="center")
         c.border = bdr
+        
+        if val is None or val == "":
+            c.value = ""
+            c.font = font_obj
+        else:
+            try:
+                num_val = float(val)
+                c.value = num_val
+                if is_pct:
+                    c.number_format = "0.00%"
+                else:
+                    c.number_format = "#,##0;-#,##0;\"-\""
+                    
+                if num_val < 0:
+                    c.font = _font(color="DC2626") # Merah
+                else:
+                    c.font = _font(color="1E293B") # Hitam
+            except (ValueError, TypeError):
+                c.value = val if val == "-" else ""
+                c.font = font_obj
 
     ws.row_dimensions[row].height = 18
     return row + 1
@@ -666,30 +749,72 @@ def _write_bold_label(ws, row: int, row_data: dict, rka_vals: list,
 
     # Pencapaian RKA
     c = ws.cell(row=row, column=COL_PENCAP)
-    col_pos_ltr = get_column_letter(COL_POS_END)
-    col_rka_ltr = get_column_letter(COL_RKA_START + rka_bulan_idx)
-    c.value = f'=IF({col_rka_ltr}{row}="","",IF({col_rka_ltr}{row}=0,"",{col_pos_ltr}{row}/{col_rka_ltr}{row}))'
-    c.number_format = "0.00%"
+    
+    from core.processor import hitung_pencapaian_rka
+    val_terbaru = None
+    if periode_list:
+        terbaru_label = periode_list[-1]
+        val_terbaru = row_data.get("values", {}).get(terbaru_label)
+        
+    val_rka = rka_vals[rka_bulan_idx] if rka_vals and rka_bulan_idx < len(rka_vals) else None
+    
+    try:
+        val_terbaru = float(val_terbaru) if val_terbaru is not None else None
+    except:
+        val_terbaru = None
+        
+    try:
+        val_rka = float(val_rka) if val_rka is not None else None
+    except:
+        val_rka = None
+        
+    pencap = hitung_pencapaian_rka(label, val_terbaru, val_rka)
+    
     c.fill = _fill(CLR_PENCAP_BG)
-    c.font = font_obj
     c.alignment = _align(h="right", v="center")
     c.border = bdr
+    c.number_format = "0.00%"
+    
+    if pencap is not None:
+        c.value = pencap
+        if pencap >= 1.00:
+            c.font = _font(bold=True, color="16A34A") # Hijau
+        elif pencap >= 0.80:
+            c.font = _font(bold=True, color="D97706") # Kuning
+        else:
+            c.font = _font(bold=True, color="DC2626") # Merah
+    else:
+        c.value = ""
+        c.font = font_obj
 
     # Growth
     for col, key in [(COL_MTD, "mtd"), (COL_DTD, "dtd"),
                      (COL_YOY, "yoy"), (COL_YTD, "ytd")]:
-        val = row_data.get(key, 0)
+        val = row_data.get(key)
         c = ws.cell(row=row, column=col)
-        try:
-            c.value = float(val)
-        except (ValueError, TypeError):
-            c.value = val if val == "-" else ""
-
-        c.number_format = '0.00%' if is_pct else "#,##0;-#,##0;\"-\""
         c.fill = fill_obj
-        c.font = font_obj
         c.alignment = _align(h="right", v="center")
         c.border = bdr
+        
+        if val is None or val == "":
+            c.value = ""
+            c.font = font_obj
+        else:
+            try:
+                num_val = float(val)
+                c.value = num_val
+                if is_pct:
+                    c.number_format = "0.00%"
+                else:
+                    c.number_format = "#,##0;-#,##0;\"-\""
+                    
+                if num_val < 0:
+                    c.font = _font(bold=True, color="DC2626") # Merah
+                else:
+                    c.font = font_obj # Hitam Bold
+            except (ValueError, TypeError):
+                c.value = val if val == "-" else ""
+                c.font = font_obj
 
     ws.row_dimensions[row].height = 18
     return row + 1
@@ -750,32 +875,74 @@ def _write_data_row(ws, row: int, row_data: dict, rka_vals: list,
         c.alignment = _align(h="right", v="center")
         c.border = bdr
 
-    # Pencapaian RKA (formula)
+    # Pencapaian RKA
     c = ws.cell(row=row, column=COL_PENCAP)
-    col_pos_ltr = get_column_letter(COL_POS_END)
-    col_rka_ltr = get_column_letter(COL_RKA_START + rka_bulan_idx)
-    c.value = f'=IF({col_rka_ltr}{row}="","",IF({col_rka_ltr}{row}=0,"",{col_pos_ltr}{row}/{col_rka_ltr}{row}))'
-    c.number_format = "0.00%"
+    
+    from core.processor import hitung_pencapaian_rka
+    val_terbaru = None
+    if periode_list:
+        terbaru_label = periode_list[-1]
+        val_terbaru = row_data.get("values", {}).get(terbaru_label)
+        
+    val_rka = rka_vals[rka_bulan_idx] if rka_vals and rka_bulan_idx < len(rka_vals) else None
+    
+    try:
+        val_terbaru = float(val_terbaru) if val_terbaru is not None else None
+    except:
+        val_terbaru = None
+        
+    try:
+        val_rka = float(val_rka) if val_rka is not None else None
+    except:
+        val_rka = None
+        
+    pencap = hitung_pencapaian_rka(label, val_terbaru, val_rka)
+    
     c.fill = _fill(CLR_PENCAP_BG)
-    c.font = font_obj
     c.alignment = _align(h="right", v="center")
     c.border = bdr
+    c.number_format = "0.00%"
+    
+    if pencap is not None:
+        c.value = pencap
+        if pencap >= 1.00:
+            c.font = _font(color="16A34A") # Hijau
+        elif pencap >= 0.80:
+            c.font = _font(color="D97706") # Kuning
+        else:
+            c.font = _font(color="DC2626") # Merah
+    else:
+        c.value = ""
+        c.font = font_obj
 
     # Growth
     for col, key in [(COL_MTD, "mtd"), (COL_DTD, "dtd"),
                      (COL_YOY, "yoy"), (COL_YTD, "ytd")]:
-        val = row_data.get(key, 0)
+        val = row_data.get(key)
         c = ws.cell(row=row, column=col)
-        try:
-            c.value = float(val)
-        except (ValueError, TypeError):
-            c.value = val if val == "-" else ""
-
-        c.number_format = '0.00%' if is_pct else "#,##0;-#,##0;\"-\""
         c.fill = fill_obj
-        c.font = font_obj
         c.alignment = _align(h="right", v="center")
         c.border = bdr
+        
+        if val is None or val == "":
+            c.value = ""
+            c.font = font_obj
+        else:
+            try:
+                num_val = float(val)
+                c.value = num_val
+                if is_pct:
+                    c.number_format = "0.00%"
+                else:
+                    c.number_format = "#,##0;-#,##0;\"-\""
+                    
+                if num_val < 0:
+                    c.font = _font(color="DC2626") # Merah
+                else:
+                    c.font = font_obj # Hitam (or default)
+            except (ValueError, TypeError):
+                c.value = val if val == "-" else ""
+                c.font = font_obj
 
     ws.row_dimensions[row].height = 18
     return row + 1
