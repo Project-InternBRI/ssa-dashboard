@@ -642,10 +642,13 @@ def prepare_pinjaman(df: pd.DataFrame) -> pd.DataFrame:
 
 def _zero_result():
     keys = ['pinjaman','pinjaman_mikro','pinjaman_small','pinjaman_konsumer',
+            'pinjaman_konsumer_kpr','pinjaman_konsumer_briguna',
             'sml','sml_pct','sml_mikro','sml_mikro_pct',
             'sml_small','sml_small_pct','sml_konsumer','sml_konsumer_pct',
+            'sml_konsumer_kpr','sml_konsumer_kpr_pct','sml_konsumer_briguna','sml_konsumer_briguna_pct',
             'npl','npl_pct','npl_mikro','npl_mikro_pct',
             'npl_small','npl_small_pct','npl_konsumer','npl_konsumer_pct',
+            'npl_konsumer_kpr','npl_konsumer_kpr_pct','npl_konsumer_briguna','npl_konsumer_briguna_pct',
             'recovery_ec','recovery_ec_mikro','recovery_ec_small','recovery_ec_konsumer']
     return {k: 0.0 for k in keys}
 
@@ -679,23 +682,36 @@ def hitung_pinjaman_kc(df_pinj, kc_keyword, tanggal):
     m_consumer = df['segmen_dashboard'] == 'Konsumer'
     m_micro    = df['segmen_dashboard'] == 'Mikro'
     
+    # Mask untuk breakdown produk Konsumer dengan normalisasi sama persis seperti classify_pinjaman_exact
+    norm_produk = df['Produk'].astype(str).str.lower().str.replace(r'[\s\-]', '', regex=True)
+    m_kpr     = m_consumer & (norm_produk == 'kpr')
+    m_briguna = m_consumer & (norm_produk == 'brigunaritel')
+    
     # Mask kolektabilitas
     m_kol2   = df['Kolektabilitas One Obligor'] == 2
     m_kol345 = df['Kolektabilitas One Obligor'].isin([3, 4, 5])
     
-    # Hitung nilai
+    # Hitung nilai Pinjaman
     small    = s(m_small)
-    konsumer = s(m_consumer)
+    kpr      = s(m_kpr)
+    briguna  = s(m_briguna)
+    konsumer = kpr + briguna # Rollup
     mikro    = s(m_micro)
     total_p  = small + konsumer + mikro
     
+    # Hitung nilai SML
     sml_small    = s(m_small    & m_kol2)
-    sml_konsumer = s(m_consumer & m_kol2)
+    sml_kpr      = s(m_kpr      & m_kol2)
+    sml_briguna  = s(m_briguna  & m_kol2)
+    sml_konsumer = sml_kpr + sml_briguna # Rollup
     sml_mikro    = s(m_micro    & m_kol2)
     sml_total    = sml_small + sml_konsumer + sml_mikro
     
+    # Hitung nilai NPL
     npl_small    = s(m_small    & m_kol345)
-    npl_konsumer = s(m_consumer & m_kol345)
+    npl_kpr      = s(m_kpr      & m_kol345)
+    npl_briguna  = s(m_briguna  & m_kol345)
+    npl_konsumer = npl_kpr + npl_briguna # Rollup
     npl_mikro    = s(m_micro    & m_kol345)
     npl_total    = npl_small + npl_konsumer + npl_mikro
     
@@ -704,6 +720,9 @@ def hitung_pinjaman_kc(df_pinj, kc_keyword, tanggal):
         'pinjaman_mikro'   : mikro,
         'pinjaman_small'   : small,
         'pinjaman_konsumer': konsumer,
+        'pinjaman_konsumer_kpr': kpr,
+        'pinjaman_konsumer_briguna': briguna,
+        
         'sml'              : sml_total,
         'sml_pct'          : safe_pct(sml_total, total_p),
         'sml_mikro'        : sml_mikro,
@@ -712,6 +731,11 @@ def hitung_pinjaman_kc(df_pinj, kc_keyword, tanggal):
         'sml_small_pct'    : safe_pct(sml_small, small),
         'sml_konsumer'     : sml_konsumer,
         'sml_konsumer_pct' : safe_pct(sml_konsumer, konsumer),
+        'sml_konsumer_kpr' : sml_kpr,
+        'sml_konsumer_kpr_pct': safe_pct(sml_kpr, konsumer),
+        'sml_konsumer_briguna': sml_briguna,
+        'sml_konsumer_briguna_pct': safe_pct(sml_briguna, konsumer),
+        
         'npl'              : npl_total,
         'npl_pct'          : safe_pct(npl_total, total_p),
         'npl_mikro'        : npl_mikro,
@@ -720,6 +744,11 @@ def hitung_pinjaman_kc(df_pinj, kc_keyword, tanggal):
         'npl_small_pct'    : safe_pct(npl_small, small),
         'npl_konsumer'     : npl_konsumer,
         'npl_konsumer_pct' : safe_pct(npl_konsumer, konsumer),
+        'npl_konsumer_kpr' : npl_kpr,
+        'npl_konsumer_kpr_pct': safe_pct(npl_kpr, konsumer),
+        'npl_konsumer_briguna': npl_briguna,
+        'npl_konsumer_briguna_pct': safe_pct(npl_briguna, konsumer),
+        
         'recovery_ec'         : None,
         'recovery_ec_mikro'   : None,
         'recovery_ec_small'   : None,
@@ -835,7 +864,8 @@ def _build_rows(wilayah: str, df_s: pd.DataFrame, df_p: pd.DataFrame,
     rows.append(p_row('header_value', 'Pinjaman', 'pinjaman'))
     rows.append(p_row('data', 'Mikro', 'pinjaman_mikro'))
     rows.append(p_row('data', 'Small', 'pinjaman_small'))
-    rows.append(p_row('data', 'Konsumer', 'pinjaman_konsumer'))
+    rows.append(p_row('data', 'Konsumer - KPR', 'pinjaman_konsumer_kpr'))
+    rows.append(p_row('data', 'Konsumer - Briguna Ritel', 'pinjaman_konsumer_briguna'))
     rows.append({'row_type': 'separator', 'label': '', 'values': {}})
 
     # ── BLOK 3: SML ─────────────────────────────────────────────
@@ -845,8 +875,10 @@ def _build_rows(wilayah: str, df_s: pd.DataFrame, df_p: pd.DataFrame,
     rows.append(p_row('data', 'Mikro %', 'sml_mikro_pct'))
     rows.append(p_row('data', 'Small', 'sml_small'))
     rows.append(p_row('data', 'Small %', 'sml_small_pct'))
-    rows.append(p_row('data', 'Konsumer', 'sml_konsumer'))
-    rows.append(p_row('data', 'Konsumer %', 'sml_konsumer_pct'))
+    rows.append(p_row('data', 'Konsumer - KPR', 'sml_konsumer_kpr'))
+    rows.append(p_row('data', 'Konsumer - KPR %', 'sml_konsumer_kpr_pct'))
+    rows.append(p_row('data', 'Konsumer - Briguna Ritel', 'sml_konsumer_briguna'))
+    rows.append(p_row('data', 'Konsumer - Briguna Ritel %', 'sml_konsumer_briguna_pct'))
 
     # ── BLOK 4: NPL ─────────────────────────────────────────────
     rows.append(p_row('bold', 'NPL', 'npl'))
@@ -855,8 +887,10 @@ def _build_rows(wilayah: str, df_s: pd.DataFrame, df_p: pd.DataFrame,
     rows.append(p_row('data', 'Mikro %', 'npl_mikro_pct'))
     rows.append(p_row('data', 'Small', 'npl_small'))
     rows.append(p_row('data', 'Small %', 'npl_small_pct'))
-    rows.append(p_row('data', 'Konsumer', 'npl_konsumer'))
-    rows.append(p_row('data', 'Konsumer %', 'npl_konsumer_pct'))
+    rows.append(p_row('data', 'Konsumer - KPR', 'npl_konsumer_kpr'))
+    rows.append(p_row('data', 'Konsumer - KPR %', 'npl_konsumer_kpr_pct'))
+    rows.append(p_row('data', 'Konsumer - Briguna Ritel', 'npl_konsumer_briguna'))
+    rows.append(p_row('data', 'Konsumer - Briguna Ritel %', 'npl_konsumer_briguna_pct'))
     rows.append({'row_type': 'separator', 'label': '', 'values': {}})
 
     # ── BLOK 5: Recovery EC ─────────────────────────────────────
@@ -875,6 +909,8 @@ def _build_rows(wilayah: str, df_s: pd.DataFrame, df_p: pd.DataFrame,
 TIPE_BARIS_TERBALIK = {
     'SML', 'SML %', 'SML > Mikro', 'Mikro %',
     'SML > Small', 'Small %', 'SML > Konsumer', 'Konsumer %',
+    'Konsumer - KPR', 'Konsumer - KPR %', 
+    'Konsumer - Briguna Ritel', 'Konsumer - Briguna Ritel %',
     'NPL', 'NPL %', 'NPL > Mikro', 'NPL > Small',
     'NPL > Konsumer',
     'Mikro % NPL', 'Small % NPL', 'Konsumer % NPL'

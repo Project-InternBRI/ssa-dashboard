@@ -18,6 +18,8 @@ from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.formatting.rule import CellIsRule
+from openpyxl.chart import BarChart, LineChart, PieChart, Reference
+from openpyxl.worksheet.datavalidation import DataValidation
 
 from core.file_reader import BULAN_PANJANG, BULAN_SINGKAT
 
@@ -109,6 +111,470 @@ CLR_POS_FONT      = "1E293B"
 CLR_ZERO_FONT     = "94A3B8"
 CLR_INFO_BG       = "1E3A5F"
 CLR_INFO2_BG      = "EFF6FF"
+# ────────────────────────────────────────────────────────────────────
+# DASHBOARD VISUALISASI
+# ────────────────────────────────────────────────────────────────────
+def style_header(ws, metadata):
+    from openpyxl.styles import Font, PatternFill, Alignment
+    # Baris 1: Judul utama
+    ws.merge_cells('A1:T1')
+    cell = ws['A1']
+    cell.value = "DASHBOARD SSA — AH GUNSAR JAKARTA REGION"
+    cell.font = Font(name='Calibri', size=18, bold=True, color='FFFFFF')
+    cell.fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
+    cell.alignment = Alignment(horizontal='left', vertical='center', indent=1)
+    ws.row_dimensions[1].height = 32
+
+    # Baris 2: Sub info
+    ws.merge_cells('A2:T2')
+    cell2 = ws['A2']
+    tanggal_terbaru = metadata.get('tanggal_terbaru', '')
+    jam = metadata.get('jam', '')
+    cell2.value = f"Data per {tanggal_terbaru} {jam} WIB"
+    cell2.font = Font(name='Calibri', size=11, italic=True, color='FFFFFF')
+    cell2.fill = PatternFill(start_color='2563EB', end_color='2563EB', fill_type='solid')
+    cell2.alignment = Alignment(horizontal='left', vertical='center', indent=1)
+    ws.row_dimensions[2].height = 22
+
+    # Baris 3: spacer kosong, tinggi kecil
+    ws.row_dimensions[3].height = 8
+
+def get_total_ah_gunsar_value(data_dict, kategori, sub, periode):
+    total_data = data_dict.get("Total AH Gunsar")
+    if not total_data or "rows" not in total_data:
+        return 0
+    
+    kat_map = {'dpk': 'Dana Pihak Ketiga', 'pinjaman': 'Pinjaman'}
+    section = kat_map.get(kategori, kategori)
+    
+def get_value_safe(data, *keys, default=None, label=""):
+    '''
+    Ambil nilai nested dari dict dengan path keys.
+    Jika gagal di tengah jalan, PRINT WARNING dengan jelas
+    key mana yang tidak ditemukan, agar mudah di-debug.
+    '''
+    current = data
+    path_so_far = []
+    for key in keys:
+        path_so_far.append(str(key))
+        if isinstance(current, dict) and key in current:
+            current = current[key]
+        else:
+            print(f"[MISSING FIELD] {label}: path "
+                  f"{' -> '.join(path_so_far)} TIDAK DITEMUKAN. "
+                  f"Keys yang tersedia di level ini: "
+                  f"{list(current.keys()) if isinstance(current, dict) else 'BUKAN DICT'}")
+            return default
+    return current if current is not None else default
+
+def get_total_ah_gunsar_value(data_dict, kategori, sub, periode):
+    # This function is not useful anymore because the original data dict is actually flattened with "rows"
+    # We will just rewrite this to use get_val_helper which actually loops through rows
+    # The actual keys in data_dict are: 'Total AH Gunsar', 'Tanah Abang', dll
+    # Each has keys: 'periode_list', 'rows'
+    
+    # We are supposed to print diagnostic but we'll adapt getting values.
+    # Actually, the user asked to print diagnostic directly in build_dashboard_visual
+    pass
+
+def get_val_helper(data_dict, kc, section, label, periode, key='values'):
+    kc_data = data_dict.get(kc)
+    if not kc_data or "rows" not in kc_data: return None
+    curr_sec = ""
+    for r in kc_data["rows"]:
+        rt = r.get("row_type", "")
+        lbl = r.get("label", "")
+        if rt in ("header", "header_value") or (rt == "bold" and lbl in ("SML", "NPL", "Recovery. EC")):
+            curr_sec = lbl
+        if curr_sec == section and lbl == label:
+            if key == 'values' and periode:
+                val = r.get("values", {}).get(periode)
+                return val if val is not None else None
+            val = r.get(key)
+            return val if val is not None else None
+    return None
+
+def get_periode_terbaru(data_dict):
+    total_data = data_dict.get("Total AH Gunsar")
+    if not total_data: return None
+    periode_list = total_data.get("periode_list", [])
+    return periode_list[-1] if periode_list else None
+
+
+def build_kpi_cards(ws, data_dict, periode_terbaru):
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import column_index_from_string
+    thin = Side(style='thin', color='E2E8F0')
+    border = Border(top=thin, bottom=thin, left=thin, right=thin)
+
+    dpk_ritel = get_val_helper(data_dict, "Total AH Gunsar", "Dana Pihak Ketiga", "Dana Pihak Ketiga", periode_terbaru) or 0
+    dpk_korp = get_val_helper(data_dict, "Total AH Gunsar", "DPK Korporasi", "DPK Korporasi", periode_terbaru) or 0
+    total_dpk = dpk_ritel + dpk_korp
+    
+    total_pinjaman = get_val_helper(data_dict, "Total AH Gunsar", "Pinjaman", "Pinjaman", periode_terbaru) or 0
+    jumlah_kc = len([k for k in data_dict.keys() if k != "Total AH Gunsar"])
+    
+    sml_pct = get_val_helper(data_dict, "Total AH Gunsar", "SML", "SML %", periode_terbaru) or 0
+    npl_pct = get_val_helper(data_dict, "Total AH Gunsar", "NPL", "NPL %", periode_terbaru) or 0
+
+    kpi_list = [
+        ("TOTAL DPK (Rp Juta)", f"{total_dpk:,.0f}", "Ritel & Korporasi", 'A', 'E'),
+        ("TOTAL PINJAMAN (Rp Juta)", f"{total_pinjaman:,.0f}", "Seluruh Segmen", 'F', 'J'),
+        ("UNIT KERJA", f"{jumlah_kc}", "Kantor Cabang", 'K', 'N'),
+        ("SML RATIO", f"{sml_pct*100:.2f}%", "Total AH Gunsar", 'O', 'Q'),
+        ("NPL RATIO", f"{npl_pct*100:.2f}%", "Total AH Gunsar", 'R', 'T'),
+    ]
+
+    for label, value, sub, col_start, col_end in kpi_list:
+        rng = f"{col_start}5:{col_end}5"
+        ws.merge_cells(rng)
+        c1 = ws[f"{col_start}5"]
+        c1.value = label
+        c1.font = Font(size=10, bold=True, color='64748B')
+        c1.alignment = Alignment(horizontal='center')
+
+        rng2 = f"{col_start}6:{col_end}7"
+        ws.merge_cells(rng2)
+        c2 = ws[f"{col_start}6"]
+        c2.value = value
+        c2.font = Font(size=20, bold=True, color='2563EB')
+        c2.alignment = Alignment(horizontal='center', vertical='center')
+
+        rng3 = f"{col_start}8:{col_end}8"
+        ws.merge_cells(rng3)
+        c3 = ws[f"{col_start}8"]
+        c3.value = sub
+        c3.font = Font(size=9, italic=True, color='94A3B8')
+        c3.alignment = Alignment(horizontal='center')
+
+        for row in range(5, 9):
+            for col_idx in range(
+                column_index_from_string(col_start),
+                column_index_from_string(col_end) + 1
+            ):
+                ws.cell(row=row, column=col_idx).border = border
+
+    ws.row_dimensions[5].height = 18
+    ws.row_dimensions[6].height = 26
+    ws.row_dimensions[7].height = 8
+    ws.row_dimensions[8].height = 16
+
+
+def write_chart_data(ws, data_dict, periode_terbaru):
+    kc_list = [k for k in data_dict.keys() if k != "Total AH Gunsar"]
+    total_data = data_dict.get("Total AH Gunsar", {})
+    periode_list = total_data.get("periode_list", [])
+    
+    periode_trend = periode_list[-6:] if len(periode_list) >= 6 else periode_list
+
+    ws['W1'] = "Periode"
+    ws['X1'] = "Total DPK"
+    ws['Y1'] = "Total Pinjaman"
+    for i, periode in enumerate(periode_trend, start=2):
+        ws.cell(row=i, column=23).value = periode  # W
+        dpk_ritel = get_val_helper(data_dict, "Total AH Gunsar", "Dana Pihak Ketiga", "Dana Pihak Ketiga", periode) or 0
+        dpk_korp = get_val_helper(data_dict, "Total AH Gunsar", "DPK Korporasi", "DPK Korporasi", periode) or 0
+        pinj_val = get_val_helper(data_dict, "Total AH Gunsar", "Pinjaman", "Pinjaman", periode) or 0
+        ws.cell(row=i, column=24).value = dpk_ritel + dpk_korp  # X
+        ws.cell(row=i, column=25).value = pinj_val  # Y
+
+    kc_portfolio = []
+    for kc in kc_list:
+        dpk_ritel = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Dana Pihak Ketiga", periode_terbaru) or 0
+        dpk_korp = get_val_helper(data_dict, kc, "DPK Korporasi", "DPK Korporasi", periode_terbaru) or 0
+        pinjaman = get_val_helper(data_dict, kc, "Pinjaman", "Pinjaman", periode_terbaru) or 0
+        kc_portfolio.append((kc, dpk_ritel + dpk_korp + pinjaman))
+    kc_portfolio.sort(key=lambda x: x[1], reverse=True)
+    top5 = kc_portfolio[:5]
+
+    ws['AA1'] = "KC"
+    ws['AB1'] = "Total Portofolio"
+    for i, (kc, val) in enumerate(top5, start=2):
+        ws.cell(row=i, column=27).value = kc   # AA
+        ws.cell(row=i, column=28).value = val  # AB
+
+    tabungan = get_val_helper(data_dict, "Total AH Gunsar", "Dana Pihak Ketiga", "Tabungan", periode_terbaru) or 0
+    g_ritel = get_val_helper(data_dict, "Total AH Gunsar", "Dana Pihak Ketiga", "Giro", periode_terbaru) or 0
+    g_korp = get_val_helper(data_dict, "Total AH Gunsar", "DPK Korporasi", "Giro", periode_terbaru) or 0
+    d_ritel = get_val_helper(data_dict, "Total AH Gunsar", "Dana Pihak Ketiga", "Deposito", periode_terbaru) or 0
+    d_korp = get_val_helper(data_dict, "Total AH Gunsar", "DPK Korporasi", "Deposito", periode_terbaru) or 0
+
+    ws['AC1'] = "Komponen"
+    ws['AD1'] = "Nilai"
+    ws['AC2'] = "Tabungan"; ws['AD2'] = tabungan
+    ws['AC3'] = "Giro"; ws['AD3'] = g_ritel + g_korp
+    ws['AC4'] = "Deposito"; ws['AD4'] = d_ritel + d_korp
+
+    ws['AE1'] = "KC"
+    ws['AF1'] = "MTD DPK"
+    for i, kc in enumerate(kc_list, start=2):
+        mtd_ritel = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Dana Pihak Ketiga", None, key='mtd') or 0
+        mtd_korp = get_val_helper(data_dict, kc, "DPK Korporasi", "DPK Korporasi", None, key='mtd') or 0
+        ws.cell(row=i, column=31).value = kc       # AE
+        ws.cell(row=i, column=32).value = (mtd_ritel + mtd_korp)  # AF
+
+    ws['AG1'] = "KC"
+    ws['AH1'] = "NPL %"
+    for i, kc in enumerate(kc_list, start=2):
+        npl_val = get_val_helper(data_dict, kc, "NPL", "NPL %", periode_terbaru) or 0
+        ws.cell(row=i, column=33).value = kc          # AG
+        ws.cell(row=i, column=34).value = npl_val  # AH
+
+    return {
+        'periode_count': len(periode_trend),
+        'kc_count': len(kc_list),
+        'top5_count': len(top5),
+    }
+
+
+def build_all_charts(ws, chart_meta):
+    from openpyxl.chart import BarChart, PieChart, LineChart, Reference
+    from openpyxl.chart.label import DataLabelList
+
+    periode_count = chart_meta['periode_count']
+    kc_count = chart_meta['kc_count']
+    top5_count = chart_meta['top5_count']
+
+    chart1 = BarChart()
+    chart1.type = "col"
+    chart1.title = "Trend DPK & Pinjaman (Rp Juta)"
+    chart1.style = 10
+    chart1.y_axis.title = "Rp Juta"
+    chart1.height = 8
+    chart1.width = 16
+    chart1.visible_cells_only = False
+
+    data1 = Reference(ws, min_col=24, max_col=25, min_row=1, max_row=1+periode_count)
+    cats1 = Reference(ws, min_col=23, min_row=2, max_row=1+periode_count)
+    chart1.add_data(data1, titles_from_data=True)
+    chart1.set_categories(cats1)
+    ws.add_chart(chart1, "A10")
+
+    chart2 = BarChart()
+    chart2.type = "bar"
+    chart2.title = "Top 5 KC — Total Portofolio (Rp Juta)"
+    chart2.style = 11; chart2.height = 8; chart2.width = 16; chart2.visible_cells_only = False
+
+    data2 = Reference(ws, min_col=28, min_row=1, max_row=1+top5_count)
+    cats2 = Reference(ws, min_col=27, min_row=2, max_row=1+top5_count)
+    chart2.add_data(data2, titles_from_data=True)
+    chart2.set_categories(cats2)
+    ws.add_chart(chart2, "K10")
+
+    chart3 = PieChart()
+    chart3.title = "Komposisi DPK (Rp Juta)"
+    chart3.height = 8; chart3.width = 12; chart3.visible_cells_only = False
+
+    data3 = Reference(ws, min_col=30, min_row=1, max_row=4)
+    cats3 = Reference(ws, min_col=29, min_row=2, max_row=4)
+    chart3.add_data(data3, titles_from_data=True)
+    chart3.set_categories(cats3)
+    chart3.dataLabels = DataLabelList()
+    chart3.dataLabels.showPercent = True
+    ws.add_chart(chart3, "A26")
+
+    chart4 = BarChart()
+    chart4.type = "col"
+    chart4.title = "Growth MTD — DPK per KC (Rp Juta)"
+    chart4.style = 12; chart4.height = 8; chart4.width = 16; chart4.visible_cells_only = False
+
+    data4 = Reference(ws, min_col=32, min_row=1, max_row=1+kc_count)
+    cats4 = Reference(ws, min_col=31, min_row=2, max_row=1+kc_count)
+    chart4.add_data(data4, titles_from_data=True)
+    chart4.set_categories(cats4)
+    ws.add_chart(chart4, "K26")
+
+    chart5 = BarChart()
+    chart5.type = "col"
+    chart5.title = "NPL Ratio per KC (%)"
+    chart5.style = 13
+    chart5.height = 8
+    chart5.width = 16
+    chart5.y_axis.numFmt = '0.00%'
+    chart5.visible_cells_only = False
+
+    data5 = Reference(ws, min_col=34, min_row=1, max_row=1+kc_count)
+    cats5 = Reference(ws, min_col=33, min_row=2, max_row=1+kc_count)
+    chart5.add_data(data5, titles_from_data=True)
+    chart5.set_categories(cats5)
+    ws.add_chart(chart5, "A42")
+
+
+def build_summary_table(ws, data_dict, periode_terbaru, start_row=58):
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    thin = Side(style='thin', color='E2E8F0')
+    border = Border(top=thin, bottom=thin, left=thin, right=thin)
+
+    ws.merge_cells(f'A{start_row}:T{start_row}')
+    title_cell = ws[f'A{start_row}']
+    title_cell.value = "Ringkasan per KC — Periode Terbaru"
+    title_cell.font = Font(size=12, bold=True, color='1E3A5F')
+
+    header_row = start_row + 1
+    headers = ["KC", "DPK Total", "Pinjaman Total", "SML %", "NPL %", "Pencapaian RKA DPK", "Status"]
+    col_widths = [3, 4, 4, 2, 2, 3, 2]
+    
+    col_idx = 1
+    col_positions = []
+    for h, w in zip(headers, col_widths):
+        start_col = col_idx
+        end_col = col_idx + w - 1
+        col_positions.append((start_col, end_col))
+        start_letter = get_column_letter(start_col)
+        end_letter = get_column_letter(end_col)
+        ws.merge_cells(f'{start_letter}{header_row}:{end_letter}{header_row}')
+        cell = ws[f'{start_letter}{header_row}']
+        cell.value = h
+        cell.font = Font(bold=True, color='FFFFFF', size=10)
+        cell.fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center')
+        col_idx = end_col + 1
+
+    kc_list = [k for k in data_dict.keys() if k != "Total AH Gunsar"]
+    row = header_row + 1
+    for kc in kc_list + ["Total AH Gunsar"]:
+        dpk_ritel = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Dana Pihak Ketiga", periode_terbaru)
+        dpk_korp = get_val_helper(data_dict, kc, "DPK Korporasi", "DPK Korporasi", periode_terbaru)
+        dpk = (dpk_ritel or 0) + (dpk_korp or 0)
+        pinj = get_val_helper(data_dict, kc, "Pinjaman", "Pinjaman", periode_terbaru) or 0
+        sml_pct = get_val_helper(data_dict, kc, "SML", "SML %", periode_terbaru)
+        npl_pct = get_val_helper(data_dict, kc, "NPL", "NPL %", periode_terbaru)
+        pencp = 0
+
+        if npl_pct is None:
+            status, status_color = "DATA TIDAK TERSEDIA", "94A3B8"
+            npl_str = "-"
+        elif npl_pct < 0.03:
+            status, status_color = "BAIK", "16A34A"
+            npl_str = f"{npl_pct*100:.2f}%"
+        elif npl_pct < 0.05:
+            status, status_color = "PERHATIAN", "D97706"
+            npl_str = f"{npl_pct*100:.2f}%"
+        else:
+            status, status_color = "KRITIS", "DC2626"
+            npl_str = f"{npl_pct*100:.2f}%"
+            
+        sml_str = f"{sml_pct*100:.2f}%" if sml_pct is not None else "-"
+
+        values = [kc, f"{dpk:,.0f}", f"{pinj:,.0f}", sml_str, npl_str, f"{pencp*100:.2f}%", status]
+
+        is_total = (kc == "Total AH Gunsar")
+        for (start_col, end_col), val in zip(col_positions, values):
+            start_letter = get_column_letter(start_col)
+            end_letter = get_column_letter(end_col)
+            ws.merge_cells(f'{start_letter}{row}:{end_letter}{row}')
+            cell = ws[f'{start_letter}{row}']
+            cell.value = val
+            cell.font = Font(bold=is_total, size=10,
+                             color='1E293B' if not is_total else '1E3A5F')
+            if val == status:
+                cell.font = Font(bold=True, size=10, color=status_color)
+            
+            cell.fill = PatternFill(
+                start_color='DBEAFE' if is_total else ('FFFFFF' if row % 2 == 0 else 'F8FAFC'),
+                end_color='DBEAFE' if is_total else ('FFFFFF' if row % 2 == 0 else 'F8FAFC'),
+                fill_type='solid'
+            )
+            cell.alignment = Alignment(horizontal='center')
+            for c in range(start_col, end_col + 1):
+                ws.cell(row=row, column=c).border = border
+
+        row += 1
+    return row
+
+def hide_support_columns(ws):
+    from openpyxl.utils import get_column_letter
+    for col_idx in range(23, 35):
+        col_letter = get_column_letter(col_idx)
+        ws.column_dimensions[col_letter].hidden = True
+
+def build_dashboard_visual(ws, data_dict, metadata=None):
+    from openpyxl.styles import Font, PatternFill, Alignment
+    import json
+    
+    # ---------------------------------------------
+    # USER DIAGNOSTIC
+    # ---------------------------------------------
+    print("="*60)
+    print("[DIAGNOSTIC] STRUKTUR DATA_DICT YANG SEBENARNYA")
+    print("="*60)
+    print("Keys di data_dict (level 1):", list(data_dict.keys()))
+    
+    total_data = data_dict.get("Total AH Gunsar")
+    if total_data:
+        print("\nKeys di Total AH Gunsar:", list(total_data.keys()))
+        if 'periode_list' in total_data:
+            print("\nperiode_list:", total_data['periode_list'])
+        else:
+            print("\n[ERROR] Key 'periode_list' TIDAK ADA!")
+    else:
+        print("\n[FATAL ERROR] 'Total AH Gunsar' TIDAK DITEMUKAN di data_dict!")
+
+    print("\n" + "="*60)
+    print("[DIAGNOSTIC] CONTOH SATU KC (bukan Total)")
+    print("="*60)
+    kc_sample = [k for k in data_dict.keys() if k != "Total AH Gunsar"]
+    if kc_sample:
+        sample_kc_data = data_dict[kc_sample[0]]
+        print(f"KC: {kc_sample[0]}")
+        print("Keys:", list(sample_kc_data.keys()))
+    print("="*60)
+    
+    # Adapt argument for older usage
+    if metadata is None:
+        metadata = {'tanggal_terbaru': '', 'jam': ''}
+        
+    periode_terbaru = get_periode_terbaru(data_dict)
+    if not periode_terbaru:
+        print("[ERROR] Tidak ada periode terbaru ditemukan!")
+        periode_terbaru = ""
+    else:
+        metadata['tanggal_terbaru'] = periode_terbaru
+
+    print(f"[DEBUG] Periode terbaru untuk dashboard: {periode_terbaru}")
+
+    ws.column_dimensions['A'].width = 4
+    for col in 'BCDEFGHIJKLMNOPQRST':
+        ws.column_dimensions[col].width = 9
+
+    style_header(ws, metadata)
+    build_kpi_cards(ws, data_dict, periode_terbaru)
+    chart_meta = write_chart_data(ws, data_dict, periode_terbaru)
+    print(f"[DEBUG] Chart meta: {chart_meta}")
+    
+    # BUILD CHARTS THEN HIDE
+    build_all_charts(ws, chart_meta)
+    
+    # CHART DEBUG
+    print("[CHART DEBUG] Chart berhasil dibuat. Mengecek chart pertama di worksheet...")
+    if ws._charts:
+        c1 = ws._charts[0]
+        print(f"[CHART DEBUG] Chart1 - jumlah series: {len(c1.series)}")
+        for s in c1.series:
+            ref = s.val.numRef.f if (s.val and s.val.numRef) else 'KOSONG'
+            print(f"  Series values ref: {ref}")
+    else:
+        print("[CHART DEBUG] TIDAK ADA CHART YANG DIBUAT!")
+        
+    summary_end_row = build_summary_table(ws, data_dict, periode_terbaru)
+    hide_support_columns(ws)
+
+    footer_row = summary_end_row + 2
+    ws.merge_cells(f'A{footer_row}:T{footer_row}')
+    footer_cell = ws[f'A{footer_row}']
+    footer_cell.value = "Catatan: Data bersifat rahasia dan hanya untuk penggunaan internal."
+    footer_cell.font = Font(size=9, italic=True, color='FFFFFF')
+    footer_cell.fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
+    footer_cell.alignment = Alignment(horizontal='center')
+
+    ws.sheet_view.showGridLines = False
+
+    assert ws.max_row > 50, "Dashboard terlalu pendek, kemungkinan ada yang gagal"
+    print(f"[SUCCESS] Dashboard sheet berhasil dibuat dengan {ws.max_row} baris")
+
+
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -121,7 +587,14 @@ def export_to_excel(data_dict: dict,
     out.parent.mkdir(parents=True, exist_ok=True)
 
     wb = Workbook()
-    wb.remove(wb.active)
+    
+    # ====== KODE BARU — TAMBAHKAN INI ======
+    ws_dashboard = wb.active
+    ws_dashboard.title = "Dashboard"
+    
+    total_ah_gunsar = data_dict.get("Total AH Gunsar", {})
+    build_dashboard_visual(ws_dashboard, data_dict, metadata=None)
+    # ====== AKHIR KODE BARU ======
 
     # Urutan sheet sesuai spesifikasi
     kc_order = [
@@ -393,6 +866,8 @@ def _write_sheet(ws, kc_name: str, kc_data: dict) -> None:
             ("Pinjaman", "Mikro"): ["pinj_mikro"],
             ("Pinjaman", "Small"): ["pinj_small"],
             ("Pinjaman", "Konsumer"): ["pinj_konsumer"],
+            ("Pinjaman", "Konsumer - KPR"): ["pinj_kons_kpr"],
+            ("Pinjaman", "Konsumer - Briguna Ritel"): ["pinj_kons_briguna"],
             
             ("SML", "SML"): ["sml_mikro", "sml_small", "sml_konsumer"],
             ("SML", "SML %"): ["sml_pct"],
@@ -402,6 +877,10 @@ def _write_sheet(ws, kc_name: str, kc_data: dict) -> None:
             ("SML", "Small %"): ["sml_small_pct"],
             ("SML", "Konsumer"): ["sml_konsumer"],
             ("SML", "Konsumer %"): ["sml_konsumer_pct"],
+            ("SML", "Konsumer - KPR"): ["sml_kons_kpr"],
+            ("SML", "Konsumer - KPR %"): ["sml_kons_kpr_pct"],
+            ("SML", "Konsumer - Briguna Ritel"): ["sml_kons_briguna"],
+            ("SML", "Konsumer - Briguna Ritel %"): ["sml_kons_briguna_pct"],
             
             ("NPL", "NPL"): ["npl_mikro", "npl_small", "npl_konsumer"],
             ("NPL", "NPL %"): ["npl_pct"],
@@ -411,6 +890,10 @@ def _write_sheet(ws, kc_name: str, kc_data: dict) -> None:
             ("NPL", "Small %"): ["npl_small_pct"],
             ("NPL", "Konsumer"): ["npl_konsumer"],
             ("NPL", "Konsumer %"): ["npl_konsumer_pct"],
+            ("NPL", "Konsumer - KPR"): ["npl_kons_kpr"],
+            ("NPL", "Konsumer - KPR %"): ["npl_kons_kpr_pct"],
+            ("NPL", "Konsumer - Briguna Ritel"): ["npl_kons_briguna"],
+            ("NPL", "Konsumer - Briguna Ritel %"): ["npl_kons_briguna_pct"],
             
             ("Recovery. EC", "Recovery. EC"): ["rec_mikro", "rec_small", "rec_konsumer"],
             ("Recovery. EC", "Mikro"): ["rec_mikro"],
@@ -440,6 +923,12 @@ def _write_sheet(ws, kc_name: str, kc_data: dict) -> None:
                 elif cols[0] == 'sml_konsumer_pct':
                     num = rec.get("sml_konsumer", 0) or 0
                     den = rec.get("pinj_konsumer", 0) or 0
+                elif cols[0] == 'sml_konsumer_kpr_pct':
+                    num = rec.get("sml_konsumer_kpr", 0) or 0
+                    den = rec.get("pinj_konsumer", 0) or 0
+                elif cols[0] == 'sml_konsumer_briguna_pct':
+                    num = rec.get("sml_konsumer_briguna", 0) or 0
+                    den = rec.get("pinj_konsumer", 0) or 0
                 elif cols[0] == 'npl_pct':
                     num = sum(rec.get(c, 0) or 0 for c in ["npl_mikro", "npl_small", "npl_konsumer"])
                     den = sum(rec.get(c, 0) or 0 for c in ["pinj_mikro", "pinj_small", "pinj_konsumer"])
@@ -451,6 +940,12 @@ def _write_sheet(ws, kc_name: str, kc_data: dict) -> None:
                     den = sum(rec.get(c, 0) or 0 for c in ["pinj_mikro", "pinj_small", "pinj_konsumer"])
                 elif cols[0] == 'npl_konsumer_pct':
                     num = rec.get("npl_konsumer", 0) or 0
+                    den = sum(rec.get(c, 0) or 0 for c in ["pinj_mikro", "pinj_small", "pinj_konsumer"])
+                elif cols[0] == 'npl_konsumer_kpr_pct':
+                    num = rec.get("npl_konsumer_kpr", 0) or 0
+                    den = sum(rec.get(c, 0) or 0 for c in ["pinj_mikro", "pinj_small", "pinj_konsumer"])
+                elif cols[0] == 'npl_konsumer_briguna_pct':
+                    num = rec.get("npl_konsumer_briguna", 0) or 0
                     den = sum(rec.get(c, 0) or 0 for c in ["pinj_mikro", "pinj_small", "pinj_konsumer"])
                 else:
                     num, den = 0, 1
