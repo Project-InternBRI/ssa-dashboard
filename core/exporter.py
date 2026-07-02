@@ -112,78 +112,17 @@ CLR_ZERO_FONT     = "94A3B8"
 CLR_INFO_BG       = "1E3A5F"
 CLR_INFO2_BG      = "EFF6FF"
 # ────────────────────────────────────────────────────────────────────
-# DASHBOARD VISUALISASI
+# DASHBOARD HELPERS — DATA ACCESS
 # ────────────────────────────────────────────────────────────────────
-def style_header(ws, metadata):
-    from openpyxl.styles import Font, PatternFill, Alignment
-    # Baris 1: Judul utama
-    ws.merge_cells('B1:U1')
-    cell = ws['B1']
-    cell.value = "DASHBOARD TABUNGAN, GIRO & DEPOSITO"
-    cell.font = Font(name='Calibri', size=18, bold=True, color='FFFFFF')
-    cell.fill = PatternFill(start_color='1E3A8A', end_color='1E3A8A', fill_type='solid')
-    cell.alignment = Alignment(horizontal='left', vertical='center', indent=1)
-    ws.row_dimensions[1].height = 32
-
-    # Baris 2: Sub info
-    ws.merge_cells('B2:U2')
-    cell2 = ws['B2']
-    tanggal_terbaru = metadata.get('tanggal_terbaru', '')
-    jam = metadata.get('jam', '')
-    cell2.value = f"Data per {tanggal_terbaru} {jam} WIB"
-    cell2.font = Font(name='Calibri', size=11, italic=True, color='FFFFFF')
-    cell2.fill = PatternFill(start_color='1E3A8A', end_color='1E3A8A', fill_type='solid')
-    cell2.alignment = Alignment(horizontal='left', vertical='center', indent=1)
-    ws.row_dimensions[2].height = 22
-
-    # Baris 3: spacer kosong, tinggi kecil
-    ws.row_dimensions[3].height = 8
-
-def get_total_ah_gunsar_value(data_dict, kategori, sub, periode):
-    total_data = data_dict.get("Total AH Gunsar")
-    if not total_data or "rows" not in total_data:
-        return 0
-    
-    kat_map = {'dpk': 'Dana Pihak Ketiga', 'pinjaman': 'Pinjaman'}
-    section = kat_map.get(kategori, kategori)
-    
-def get_value_safe(data, *keys, default=None, label=""):
-    '''
-    Ambil nilai nested dari dict dengan path keys.
-    Jika gagal di tengah jalan, PRINT WARNING dengan jelas
-    key mana yang tidak ditemukan, agar mudah di-debug.
-    '''
-    current = data
-    path_so_far = []
-    for key in keys:
-        path_so_far.append(str(key))
-        if isinstance(current, dict) and key in current:
-            current = current[key]
-        else:
-            print(f"[MISSING FIELD] {label}: path "
-                  f"{' -> '.join(path_so_far)} TIDAK DITEMUKAN. "
-                  f"Keys yang tersedia di level ini: "
-                  f"{list(current.keys()) if isinstance(current, dict) else 'BUKAN DICT'}")
-            return default
-    return current if current is not None else default
-
-def get_total_ah_gunsar_value(data_dict, kategori, sub, periode):
-    # This function is not useful anymore because the original data dict is actually flattened with "rows"
-    # We will just rewrite this to use get_val_helper which actually loops through rows
-    # The actual keys in data_dict are: 'Total AH Gunsar', 'Tanah Abang', dll
-    # Each has keys: 'periode_list', 'rows'
-    
-    # We are supposed to print diagnostic but we'll adapt getting values.
-    # Actually, the user asked to print diagnostic directly in build_dashboard_visual
-    pass
 
 def get_valid_kc_list(data_dict):
-    excluded = {"Total AH Gunsar"}
+    """Return list of valid KC keys, filtering out Total AH Gunsar and __stats__."""
+    excluded = {"Total AH Gunsar", "__stats__"}
     valid_kc = []
     for key in data_dict.keys():
         if key in excluded:
             continue
-        if key.startswith('_'):  
+        if key.startswith('_'):
             continue
         if not isinstance(data_dict[key], dict):
             continue
@@ -192,9 +131,11 @@ def get_valid_kc_list(data_dict):
         valid_kc.append(key)
     return valid_kc
 
+
 def get_val_helper(data_dict, kc, section, label, periode, key='values'):
     kc_data = data_dict.get(kc)
-    if not kc_data or "rows" not in kc_data: return None
+    if not kc_data or "rows" not in kc_data:
+        return None
     curr_sec = ""
     for r in kc_data["rows"]:
         rt = r.get("row_type", "")
@@ -209,350 +150,435 @@ def get_val_helper(data_dict, kc, section, label, periode, key='values'):
             return val if val is not None else None
     return None
 
+
 def get_periode_terbaru(data_dict):
     total_data = data_dict.get("Total AH Gunsar")
-    if not total_data: return None
+    if not total_data:
+        return None
     periode_list = total_data.get("periode_list", [])
     return periode_list[-1] if periode_list else None
 
 
-def build_kpi_cards(ws, data_dict, periode_terbaru):
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import column_index_from_string
-    thin = Side(style='thin', color='E2E8F0')
-    border = Border(top=thin, bottom=thin, left=thin, right=thin)
-
-    dpk_ritel = get_val_helper(data_dict, "Total AH Gunsar", "Dana Pihak Ketiga", "Dana Pihak Ketiga", periode_terbaru) or 0
-    dpk_korp = get_val_helper(data_dict, "Total AH Gunsar", "DPK Korporasi", "DPK Korporasi", periode_terbaru) or 0
-    total_dpk = dpk_ritel + dpk_korp
-    
-    t_ritel = get_val_helper(data_dict, "Total AH Gunsar", "Dana Pihak Ketiga", "Tabungan", periode_terbaru) or 0
-    g_ritel = get_val_helper(data_dict, "Total AH Gunsar", "Dana Pihak Ketiga", "Giro", periode_terbaru) or 0
-    g_korp = get_val_helper(data_dict, "Total AH Gunsar", "DPK Korporasi", "Giro", periode_terbaru) or 0
-    d_ritel = get_val_helper(data_dict, "Total AH Gunsar", "Dana Pihak Ketiga", "Deposito", periode_terbaru) or 0
-    d_korp = get_val_helper(data_dict, "Total AH Gunsar", "DPK Korporasi", "Deposito", periode_terbaru) or 0
-
-    kpi_list = [
-        ("TOTAL DANA PIHAK KETIGA (DPK)", total_dpk, 'B', 'F'),
-        ("TABUNGAN", t_ritel, 'G', 'K'),
-        ("GIRO", g_ritel + g_korp, 'L', 'P'),
-        ("DEPOSITO", d_ritel + d_korp, 'Q', 'U'),
-    ]
-
-    for lbl, val, col_start, col_end in kpi_list:
-        rng = f"{col_start}5:{col_end}5"
-        ws.merge_cells(rng)
-        c1 = ws[f"{col_start}5"]
-        c1.value = lbl
-        c1.font = Font(size=10, bold=True, color='1E3A8A')
-        c1.alignment = Alignment(horizontal='center')
-
-        rng2 = f"{col_start}6:{col_end}7"
-        ws.merge_cells(rng2)
-        c2 = ws[f"{col_start}6"]
-        c2.value = f"{val:,.0f}".replace(',', '.')
-        c2.font = Font(size=20, bold=True, color='1E3A8A')
-        c2.alignment = Alignment(horizontal='center', vertical='center')
-
-        rng3 = f"{col_start}8:{col_end}8"
-        ws.merge_cells(rng3)
-        c3 = ws[f"{col_start}8"]
-        c3.value = f"Per {periode_terbaru}"
-        c3.font = Font(size=9, italic=True, color='64748B')
-        c3.alignment = Alignment(horizontal='center')
-
-        for row in range(5, 9):
-            for col_idx in range(column_index_from_string(col_start), column_index_from_string(col_end) + 1):
-                ws.cell(row=row, column=col_idx).border = border
-
-    ws.row_dimensions[5].height = 18; ws.row_dimensions[6].height = 26
-    ws.row_dimensions[7].height = 8; ws.row_dimensions[8].height = 16
-
-
-def write_chart_data(ws, data_dict, periode_terbaru):
-    kc_list = get_valid_kc_list(data_dict)
-    
-    metrics = []
-    for kc in kc_list:
-        mtd_ritel = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Dana Pihak Ketiga", None, key='mtd') or 0
-        mtd_korp = get_val_helper(data_dict, kc, "DPK Korporasi", "DPK Korporasi", None, key='mtd') or 0
-        mtd_dpk = (mtd_ritel + mtd_korp) / 1000
-        
-        t_mtd = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Tabungan", None, key='mtd') or 0
-        mtd_tab = t_mtd / 1000
-        
-        g_mtd_r = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Giro", None, key='mtd') or 0
-        g_mtd_k = get_val_helper(data_dict, kc, "DPK Korporasi", "Giro", None, key='mtd') or 0
-        mtd_gir = (g_mtd_r + g_mtd_k) / 1000
-        
-        d_mtd_r = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Deposito", None, key='mtd') or 0
-        d_mtd_k = get_val_helper(data_dict, kc, "DPK Korporasi", "Deposito", None, key='mtd') or 0
-        mtd_dep = (d_mtd_r + d_mtd_k) / 1000
-        
-        ytd_ritel = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Dana Pihak Ketiga", None, key='ytd') or 0
-        ytd_korp = get_val_helper(data_dict, kc, "DPK Korporasi", "DPK Korporasi", None, key='ytd') or 0
-        ytd_dpk = (ytd_ritel + ytd_korp) / 1000
-        
-        t_ytd = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Tabungan", None, key='ytd') or 0
-        ytd_tab = t_ytd / 1000
-        
-        g_ytd_r = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Giro", None, key='ytd') or 0
-        g_ytd_k = get_val_helper(data_dict, kc, "DPK Korporasi", "Giro", None, key='ytd') or 0
-        ytd_gir = (g_ytd_r + g_ytd_k) / 1000
-        
-        d_ytd_r = get_val_helper(data_dict, kc, "Dana Pihak Ketiga", "Deposito", None, key='ytd') or 0
-        d_ytd_k = get_val_helper(data_dict, kc, "DPK Korporasi", "Deposito", None, key='ytd') or 0
-        ytd_dep = (d_ytd_r + d_ytd_k) / 1000
-        
-        metrics.append({
-            'kc': kc, 
-            'mtd_dpk': int(round(mtd_dpk, 0)), 
-            'mtd_tab': int(round(mtd_tab, 0)), 
-            'mtd_gir': int(round(mtd_gir, 0)), 
-            'mtd_dep': int(round(mtd_dep, 0)),
-            'ytd_dpk': int(round(ytd_dpk, 0)), 
-            'ytd_tab': int(round(ytd_tab, 0)), 
-            'ytd_gir': int(round(ytd_gir, 0)), 
-            'ytd_dep': int(round(ytd_dep, 0))
-        })
-        
-    def write_sorted_full(ws, start_col, key_val):
-        s = sorted(metrics, key=lambda x: x[key_val])
-        s = list(reversed(s))
-            
-        ws.cell(row=1, column=start_col).value = "KC"
-        ws.cell(row=1, column=start_col+1).value = key_val
-        for i, m in enumerate(s, start=2):
-            ws.cell(row=i, column=start_col).value = m['kc']
-            ws.cell(row=i, column=start_col+1).value = m[key_val]
-
-    # MTD
-    write_sorted_full(ws, 23, 'mtd_dpk')
-    write_sorted_full(ws, 25, 'mtd_tab')
-    write_sorted_full(ws, 27, 'mtd_gir')
-    write_sorted_full(ws, 29, 'mtd_dep')
-
-    # YTD
-    write_sorted_full(ws, 31, 'ytd_dpk')
-    write_sorted_full(ws, 33, 'ytd_tab')
-    write_sorted_full(ws, 35, 'ytd_gir')
-    write_sorted_full(ws, 37, 'ytd_dep')
-    
-    return {
-        'metrics': metrics,
-        'kc_count': len(metrics)
-    }
-
-
-def build_all_charts(ws, chart_meta, periode_terbaru):
-    from openpyxl.chart import BarChart, Reference, Series
-    from openpyxl.chart.label import DataLabelList
-    from openpyxl.chart.shapes import GraphicalProperties
-    from openpyxl.drawing.line import LineProperties
-    from openpyxl.styles import Font, PatternFill
-    
-    kc_count = chart_meta['kc_count']
-
-    for row, lbl, fill_col in [(10, "PERFORMA MTD (JUNI 2026)", "1E3A8A"), 
-                               (26, "PERFORMA YTD (1 JAN - 28 JUN 2026)", "1E3A8A")]:
-        ws.merge_cells(f'B{row}:U{row}')
-        c = ws[f'B{row}']
-        c.value = lbl
-        c.font = Font(bold=True, color='FFFFFF', size=11)
-        c.fill = PatternFill(start_color=fill_col, end_color=fill_col, fill_type='solid')
-
-    def make_chart_header(title, col_start, col_end, row):
-        ws.merge_cells(f'{col_start}{row}:{col_end}{row}')
-        c = ws[f'{col_start}{row}']
-        c.value = title
-        c.font = Font(bold=True, color='FFFFFF', size=10)
-        c.fill = PatternFill(start_color='1E293B', end_color='1E293B', fill_type='solid')
-        c.alignment = Alignment(horizontal='center', vertical='center')
-
-    # MTD Headers
-    make_chart_header("DANA PIHAK KETIGA (Rp Miliar)", 'B', 'F', 11)
-    make_chart_header("TABUNGAN (Rp Miliar)", 'G', 'K', 11)
-    make_chart_header("GIRO (Rp Miliar)", 'L', 'P', 11)
-    make_chart_header("DEPOSITO (Rp Miliar)", 'Q', 'U', 11)
-
-    # YTD Headers
-    make_chart_header("DANA PIHAK KETIGA (Rp Miliar)", 'B', 'F', 27)
-    make_chart_header("TABUNGAN (Rp Miliar)", 'G', 'K', 27)
-    make_chart_header("GIRO (Rp Miliar)", 'L', 'P', 27)
-    make_chart_header("DEPOSITO (Rp Miliar)", 'Q', 'U', 27)
-
-    def make_horizontal_bar_chart(col_start, col_data_start, row_start, bar_color):
-        c = BarChart()
-        c.type = "bar" 
-        c.title = None
-        c.height = 6.8
-        c.width = 8.8
-        c.visible_cells_only = False
-        
-        c.legend = None
-        c.gapWidth = 50
-        
-        cats = Reference(ws, min_col=col_data_start, min_row=2, max_row=1+kc_count)
-        data = Reference(ws, min_col=col_data_start+1, min_row=1, max_row=1+kc_count)
-        
-        c.add_data(data, titles_from_data=True)
-        c.set_categories(cats)
-        c.y_axis.numFmt = '#,##0'
-        
-        # Disable major gridlines on value axis for cleaner look
-        c.y_axis.majorGridlines = None
-        
-        # Ensure category labels stay on left and don't overlap with negative bars
-        c.x_axis.tickLblPos = "low"
-        
-        if c.series:
-            c.series[0].graphicalProperties.solidFill = bar_color
-            c.series[0].dLbls = DataLabelList()
-            c.series[0].dLbls.showVal = True
-            c.series[0].dLbls.showCatName = False
-            c.series[0].dLbls.showSerName = False
-            c.series[0].dLbls.showLegendKey = False
-            c.series[0].dLbls.showPercent = False
-                
-        ws.add_chart(c, f"{col_start}{row_start}")
-
-    # Colors: DPK (Navy), Tabungan (Blue), Giro (Orange), Deposito (Green)
-    C_DPK = "1E3A8A"; C_TAB = "2563EB"; C_GIR = "F59E0B"; C_DEP = "10B981"
-
-    make_horizontal_bar_chart("B", 23, 12, C_DPK)
-    make_horizontal_bar_chart("G", 25, 12, C_TAB)
-    make_horizontal_bar_chart("L", 27, 12, C_GIR)
-    make_horizontal_bar_chart("Q", 29, 12, C_DEP)
-
-    make_horizontal_bar_chart("B", 31, 28, C_DPK)
-    make_horizontal_bar_chart("G", 33, 28, C_TAB)
-    make_horizontal_bar_chart("L", 35, 28, C_GIR)
-    make_horizontal_bar_chart("Q", 37, 28, C_DEP)
-
-
-def build_summary_table(ws, data_dict, periode_terbaru, chart_meta):
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-
-    metrics = chart_meta['metrics']
-    start_row = 43
-    thin = Side(style='thin', color='E2E8F0')
-    border = Border(top=thin, bottom=thin, left=thin, right=thin)
-
-    ws.merge_cells(f'B{start_row}:U{start_row}')
-    title_cell = ws[f'B{start_row}']
-    title_cell.value = "DETAIL PENURUNAN DPK PER KC (Rp Miliar)"
-    title_cell.font = Font(size=12, bold=True, color='1E3A8A')
-    
-    header_row1 = start_row + 1
-    header_row2 = start_row + 2
-    
-    ws.merge_cells(f'B{header_row1}:B{header_row2}'); ws[f'B{header_row1}'] = "No"
-    ws.merge_cells(f'C{header_row1}:E{header_row2}'); ws[f'C{header_row1}'] = "Nama KC"
-    
-    ws.merge_cells(f'F{header_row1}:I{header_row1}'); ws[f'F{header_row1}'] = "DANA PIHAK KETIGA (DPK)"
-    ws.merge_cells(f'J{header_row1}:M{header_row1}'); ws[f'J{header_row1}'] = "TABUNGAN"
-    ws.merge_cells(f'N{header_row1}:Q{header_row1}'); ws[f'N{header_row1}'] = "GIRO"
-    ws.merge_cells(f'R{header_row1}:U{header_row1}'); ws[f'R{header_row1}'] = "DEPOSITO"
-    
-    col_idx = 6
-    for _ in range(4): 
-        ws.merge_cells(f'{get_column_letter(col_idx)}{header_row2}:{get_column_letter(col_idx+1)}{header_row2}')
-        ws[f'{get_column_letter(col_idx)}{header_row2}'] = "MTD"
-        ws.merge_cells(f'{get_column_letter(col_idx+2)}{header_row2}:{get_column_letter(col_idx+3)}{header_row2}')
-        ws[f'{get_column_letter(col_idx+2)}{header_row2}'] = "YTD"
-        col_idx += 4
-
-    for r in [header_row1, header_row2]:
-        for c in range(2, 22):
-            cell = ws.cell(row=r, column=c)
-            cell.font = Font(bold=True, color='FFFFFF', size=10)
-            cell.fill = PatternFill(start_color='1E3A8A', end_color='1E3A8A', fill_type='solid')
-            cell.alignment = Alignment(horizontal='center', vertical='center')
-            cell.border = border
-            
-    row = header_row2 + 1
-    metrics.sort(key=lambda x: x['kc'])
-    
-    for i, m in enumerate(metrics, start=1):
-        ws.cell(row=row, column=2).value = i
-        ws.merge_cells(f'C{row}:E{row}'); ws.cell(row=row, column=3).value = m['kc']
-        
-        vals = [
-            m['mtd_dpk'], m['ytd_dpk'], 
-            m['mtd_tab'], m['ytd_tab'],
-            m['mtd_gir'], m['ytd_gir'],
-            m['mtd_dep'], m['ytd_dep']
-        ]
-        
-        c_idx = 6
-        for v in vals:
-            ws.merge_cells(f'{get_column_letter(c_idx)}{row}:{get_column_letter(c_idx+1)}{row}')
-            c = ws.cell(row=row, column=c_idx)
-            c.value = v
-            c.number_format = '#,##0.00'
-            c_idx += 2
-            
-        for c in range(2, 22):
-            cell = ws.cell(row=row, column=c)
-            cell.border = border
-            cell.alignment = Alignment(horizontal='center', vertical='center')
-            if row % 2 == 0:
-                cell.fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
-                
-        row += 1
-    return row
-
-def hide_support_columns(ws):
-    from openpyxl.utils import get_column_letter
-    for col_idx in range(23, 40):
-        col_letter = get_column_letter(col_idx)
-        ws.column_dimensions[col_letter].hidden = True
+# ────────────────────────────────────────────────────────────────────
+# MAIN DASHBOARD FUNCTION — COMPLETE REWRITE
+# ────────────────────────────────────────────────────────────────────
 
 def build_dashboard_visual(ws, data_dict, metadata=None):
-    from openpyxl.styles import Font, PatternFill, Alignment
-    
-    if metadata is None: metadata = {'tanggal_terbaru': '', 'jam': ''}
-        
-    periode_terbaru = get_periode_terbaru(data_dict)
-    
-    print("\n" + "="*60)
-    print("[DIAGNOSTIC] MEMULAI PEMBUATAN DASHBOARD")
-    print(f"Periode Terbaru: {periode_terbaru}")
-    print(f"Keys data_dict: {list(data_dict.keys())}")
-    print("="*60)
+    """Build dashboard with 8 bar charts (MTD+YTD) and time series line chart."""
+    import os
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter, column_index_from_string
+    from openpyxl.chart import BarChart, LineChart, Reference
+    from openpyxl.chart.label import DataLabelList
 
+    if metadata is None:
+        metadata = {'tanggal_terbaru': '', 'jam': ''}
+
+    kc_list = get_valid_kc_list(data_dict)
+    periode_terbaru = get_periode_terbaru(data_dict)
+
+    if not kc_list or not periode_terbaru:
+        print("[ERROR] Data tidak valid — dashboard tidak dibuat")
+        return
+
+    periode_list = data_dict.get("Total AH Gunsar", {}).get("periode_list", [])
+
+    def _get_mtd(kc, section, label):
+        return get_val_helper(data_dict, kc, section, label, None, key='mtd') or 0
+
+    def _get_ytd(kc, section, label):
+        return get_val_helper(data_dict, kc, section, label, None, key='ytd') or 0
+
+    def _get_val(kc, section, label, periode):
+        return get_val_helper(data_dict, kc, section, label, periode) or 0
+
+    metrics = []
+    for kc in kc_list:
+        metrics.append({
+            'kc': kc,
+            'mtd_dpk': (_get_mtd(kc, "Dana Pihak Ketiga", "Dana Pihak Ketiga") + _get_mtd(kc, "DPK Korporasi", "DPK Korporasi")) / 1000,
+            'mtd_tab': _get_mtd(kc, "Dana Pihak Ketiga", "Tabungan") / 1000,
+            'mtd_gir': (_get_mtd(kc, "Dana Pihak Ketiga", "Giro") + _get_mtd(kc, "DPK Korporasi", "Giro")) / 1000,
+            'mtd_dep': (_get_mtd(kc, "Dana Pihak Ketiga", "Deposito") + _get_mtd(kc, "DPK Korporasi", "Deposito")) / 1000,
+            'ytd_dpk': (_get_ytd(kc, "Dana Pihak Ketiga", "Dana Pihak Ketiga") + _get_ytd(kc, "DPK Korporasi", "DPK Korporasi")) / 1000,
+            'ytd_tab': _get_ytd(kc, "Dana Pihak Ketiga", "Tabungan") / 1000,
+            'ytd_gir': (_get_ytd(kc, "Dana Pihak Ketiga", "Giro") + _get_ytd(kc, "DPK Korporasi", "Giro")) / 1000,
+            'ytd_dep': (_get_ytd(kc, "Dana Pihak Ketiga", "Deposito") + _get_ytd(kc, "DPK Korporasi", "Deposito")) / 1000
+        })
+
+    # KPI totals
+    total_dpk = _get_val("Total AH Gunsar", "Dana Pihak Ketiga", "Dana Pihak Ketiga", periode_terbaru) + _get_val("Total AH Gunsar", "DPK Korporasi", "DPK Korporasi", periode_terbaru)
+    total_tab = _get_val("Total AH Gunsar", "Dana Pihak Ketiga", "Tabungan", periode_terbaru)
+    total_giro = _get_val("Total AH Gunsar", "Dana Pihak Ketiga", "Giro", periode_terbaru) + _get_val("Total AH Gunsar", "DPK Korporasi", "Giro", periode_terbaru)
+    total_dep = _get_val("Total AH Gunsar", "Dana Pihak Ketiga", "Deposito", periode_terbaru) + _get_val("Total AH Gunsar", "DPK Korporasi", "Deposito", periode_terbaru)
+
+    # ──────────────────────────────────────────────
+    # STEP 2: PREPARE AND WRITE CHART SOURCE DATA
+    # ──────────────────────────────────────────────
+    DATA_START = 150
+    DC = 30  # Column AD
+
+    # We have 16 charts: 4 sections * 4 metrics. Each needs 2 columns (KC, Value)
+    # 0-3: MTD Kenaikan (DPK, Tab, Gir, Dep) -> cols 30-37
+    # 4-7: MTD Penurunan -> cols 38-45
+    # 8-11: YTD Kenaikan -> cols 46-53
+    # 12-15: YTD Penurunan -> cols 54-61
+
+    chart_data_ranges = [] # list of (min_row, max_row, col_idx_kc, col_idx_val)
+    col_offset = 0
+
+    for metric_type in ['mtd', 'ytd']:
+        for is_penurunan in [False, True]:
+            for metric_key in ['dpk', 'tab', 'gir', 'dep']:
+                full_key = f"{metric_type}_{metric_key}"
+                
+                # Filter and sort
+                if not is_penurunan:
+                    filtered = [(m['kc'], m[full_key]) for m in metrics if m[full_key] > 0]
+                    filtered.sort(key=lambda x: x[1], reverse=True) # Highest positive first
+                else:
+                    filtered = [(m['kc'], m[full_key]) for m in metrics if m[full_key] < 0]
+                    filtered.sort(key=lambda x: x[1]) # Lowest negative first (e.g. -5000 before -2000)
+
+                # Take top 5
+                top5 = filtered[:5]
+                
+                kc_col = DC + col_offset
+                val_col = DC + col_offset + 1
+                
+                # Write to sheet
+                for i, (k, v) in enumerate(top5):
+                    ws.cell(row=DATA_START + i, column=kc_col).value = k
+                    ws.cell(row=DATA_START + i, column=val_col).value = v
+                
+                max_row = DATA_START + len(top5) - 1 if top5 else DATA_START
+                chart_data_ranges.append((DATA_START, max_row, kc_col, val_col))
+                
+                col_offset += 2
+
+    # Time Series Data
+    TS_START = DATA_START + 10
+    for i, p in enumerate(periode_list):
+        r = TS_START + i
+        ws.cell(row=r, column=DC+32).value = str(p)
+        ws.cell(row=r, column=DC+33).value = (_get_val("Total AH Gunsar", "Dana Pihak Ketiga", "Dana Pihak Ketiga", p) + _get_val("Total AH Gunsar", "DPK Korporasi", "DPK Korporasi", p)) / 1000
+        ws.cell(row=r, column=DC+34).value = _get_val("Total AH Gunsar", "Dana Pihak Ketiga", "Tabungan", p) / 1000
+        ws.cell(row=r, column=DC+35).value = (_get_val("Total AH Gunsar", "Dana Pihak Ketiga", "Giro", p) + _get_val("Total AH Gunsar", "DPK Korporasi", "Giro", p)) / 1000
+        ws.cell(row=r, column=DC+36).value = (_get_val("Total AH Gunsar", "Dana Pihak Ketiga", "Deposito", p) + _get_val("Total AH Gunsar", "DPK Korporasi", "Deposito", p)) / 1000
+    TS_END = TS_START + len(periode_list) - 1
+
+    # ──────────────────────────────────────────────
+    # STEP 3: COLUMN WIDTHS & ZOOM
+    # ──────────────────────────────────────────────
+    ws.sheet_view.zoomScale = 100
     ws.column_dimensions['A'].width = 2
     for col in 'BCDEFGHIJKLMNOPQRSTU':
-        ws.column_dimensions[col].width = 11
+        ws.column_dimensions[col].width = 11.5
 
-    style_header(ws, metadata)
-    build_kpi_cards(ws, data_dict, periode_terbaru)
-    chart_meta = write_chart_data(ws, data_dict, periode_terbaru)
-    build_all_charts(ws, chart_meta, periode_terbaru)
-    
-    summary_end_row = build_summary_table(ws, data_dict, periode_terbaru, chart_meta)
-    hide_support_columns(ws)
+    # ──────────────────────────────────────────────
+    # STEP 4: HEADER (rows 1-3)
+    # ──────────────────────────────────────────────
+    ws.merge_cells('B1:U2')
+    ws.row_dimensions[1].height = 60
+    ws.row_dimensions[2].height = 40
+    ws.row_dimensions[3].height = 20 # Spacer gap
 
-    footer_row = summary_end_row + 2
-    ws.merge_cells(f'B{footer_row}:U{footer_row}')
-    footer_cell = ws[f'B{footer_row}']
-    footer_cell.value = "Catatan: Data bersifat rahasia dan hanya untuk penggunaan internal."
-    footer_cell.font = Font(size=9, italic=True, color='FFFFFF')
-    footer_cell.fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
-    footer_cell.alignment = Alignment(horizontal='center')
+    header_title = "DASHBOARD TABUNGAN, GIRO & DEPOSITO"
 
+    from datetime import datetime
+    tgl = metadata.get('tanggal_terbaru')
+    if not tgl:
+        tgl = str(periode_terbaru)
+        try:
+            if " " in tgl: tgl = tgl.split()[0]
+            dt = datetime.strptime(tgl, '%Y-%m-%d')
+            months = ["", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
+            tgl = f"{dt.day} {months[dt.month]} {dt.year}"
+        except:
+            pass
+    jam = metadata.get('jam')
+    jam_str = f" {jam}" if jam else ""
+    header_subtitle = f"Data per {tgl}{jam_str} WIB"
+
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        from openpyxl.drawing.image import Image as XLImage
+        import tempfile
+        import os
+        import math
+
+        W, H = 1900, 135 # Height matches rows 1+2 (100 pts ~= 135 px)
+        
+        bg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'background_header_excel_dashboard.png')
+        if not os.path.exists(bg_path):
+            bg_path = os.path.join('assets', 'background_header_excel_dashboard.png')
+
+        if os.path.exists(bg_path):
+            orig_bg = Image.open(bg_path).convert("RGBA")
+            base_color = orig_bg.getpixel((0, 0))
+            bg = Image.new("RGBA", (W, H), base_color)
+            
+            # Fit fully without cropping
+            piece_h = H
+            piece_w = int(orig_bg.width * (piece_h / orig_bg.height))
+            # Just in case they wanted it a bit wider, we can stretch it slightly
+            # But let's stick to strict aspect ratio to prevent cropping/distortion
+            piece = orig_bg.resize((piece_w, piece_h), Image.Resampling.LANCZOS)
+            
+            mask = Image.new("L", (piece_w, piece_h), 255)
+            fade_width = min(200, piece_w) # smooth transition area
+            for x in range(fade_width):
+                # Cosine wave for very smooth transition
+                alpha = int(255 * (1 - math.cos(math.pi * x / fade_width)) / 2)
+                for y in range(piece_h):
+                    mask.putpixel((x, y), alpha)
+                    
+            piece.putalpha(mask)
+            bg.paste(piece, (W - piece_w, 0), piece)
+        else:
+            bg = Image.new("RGBA", (W, H), "#002060")
+
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'icons', 'bri_excel_logo.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join('assets', 'icons', 'bri_excel_logo.png')
+
+        if os.path.exists(logo_path):
+            orig_logo = Image.open(logo_path)
+            has_alpha = 'A' in orig_logo.mode or ('transparency' in orig_logo.info)
+            logo = orig_logo.convert("RGBA")
+            
+            if has_alpha:
+                alpha = logo.split()[3]
+                white_logo = Image.new("RGBA", logo.size, (255, 255, 255, 255))
+                white_logo.putalpha(alpha)
+                logo = white_logo
+                
+            lh = 65
+            lw = int(logo.width * (lh / logo.height))
+            logo = logo.resize((lw, lh), Image.Resampling.LANCZOS)
+            bg.paste(logo, (50, (H - lh)//2), logo)
+            text_x = 50 + lw + 40
+
+            draw = ImageDraw.Draw(bg)
+            draw.line([(text_x - 20, 25), (text_x - 20, H - 25)], fill="white", width=3)
+        else:
+            text_x = 50
+            draw = ImageDraw.Draw(bg)
+
+        try:
+            font_title = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 40)
+            font_sub = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 22)
+        except:
+            font_title = ImageFont.load_default()
+            font_sub = ImageFont.load_default()
+
+        draw.text((text_x, (H//2) - 45), header_title, font=font_title, fill="white")
+        draw.text((text_x, (H//2) + 10), f"📅 {header_subtitle}", font=font_sub, fill="white")
+
+        temp_img_path = os.path.join(tempfile.gettempdir(), 'header_generated.png')
+        bg.save(temp_img_path)
+
+        xl_img = XLImage(temp_img_path)
+        xl_img.width = W
+        xl_img.height = H
+        ws.add_image(xl_img, 'B1')
+
+    except Exception as e:
+        print(f"[HEADER] Gagal generate header image: {e}")
+        ws.merge_cells('B1:U1')
+        h1 = ws['B1']
+        h1.value = header_title
+        h1.font = Font(name='Calibri', size=18, bold=True, color='FFFFFF')
+        h1.fill = PatternFill(start_color='1E3A8A', end_color='1E3A8A', fill_type='solid')
+        h1.alignment = Alignment(horizontal='left', vertical='center', indent=2)
+
+        ws.merge_cells('B2:U2')
+        h2 = ws['B2']
+        h2.value = header_subtitle
+        h2.font = Font(name='Calibri', size=10, italic=True, color='FFFFFF')
+        h2.fill = PatternFill(start_color='1E3A8A', end_color='1E3A8A', fill_type='solid')
+        h2.alignment = Alignment(horizontal='left', vertical='center', indent=2)
+
+
+    # ──────────────────────────────────────────────
+    # STEP 5: KPI CARDS (rows 4-8)
+    # ──────────────────────────────────────────────
+    thin_s = Side(style='thin', color='CBD5E1')
+    card_border = Border(top=thin_s, bottom=thin_s, left=thin_s, right=thin_s)
+
+    kpi_configs = [
+        ("TOTAL DANA PIHAK KETIGA (DPK)", total_dpk, '000080', '000080', 'kpi_dpk.png', 'B'),
+        ("TABUNGAN", total_tab, '000080', '000080', 'kpi_tab.png', 'G'),
+        ("GIRO", total_giro, 'FF6600', '000080', 'kpi_gir.png', 'L'),
+        ("DEPOSITO", total_dep, '006600', '006600', 'kpi_dep.png', 'Q')
+    ]
+
+    for lbl, val, title_color, val_color, icon_name, sc in kpi_configs:
+        sc_i = column_index_from_string(sc)
+        ec_i = sc_i + 4
+        ec = get_column_letter(ec_i)
+        
+        # Merge for Icon (sc, rows 4-7)
+        ws.merge_cells(start_row=4, start_column=sc_i, end_row=7, end_column=sc_i)
+        
+        # Attempt to insert icon
+        try:
+            from openpyxl.drawing.image import Image as XLImage
+            img_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'icons', icon_name)
+            if not os.path.exists(img_path):
+                img_path = os.path.join('assets', 'icons', icon_name)
+            if os.path.exists(img_path):
+                img = XLImage(img_path)
+                img.width = 54
+                img.height = 54
+                ws.add_image(img, f'{sc}4')
+        except Exception as e:
+            print(f"[KPI] Gagal load icon {icon_name}: {e}")
+
+        # Title: sc+1 row 4
+        ws.merge_cells(start_row=4, start_column=sc_i+1, end_row=4, end_column=ec_i)
+        c = ws.cell(row=4, column=sc_i+1)
+        c.value = lbl
+        c.font = Font(name='Calibri', size=10, bold=True, color=title_color)
+        c.alignment = Alignment(horizontal='left', vertical='bottom', wrap_text=True)
+
+        # Date: sc+1 row 5
+        ws.merge_cells(start_row=5, start_column=sc_i+1, end_row=5, end_column=ec_i)
+        c = ws.cell(row=5, column=sc_i+1)
+        c.value = f"Per {periode_terbaru}"
+        c.font = Font(name='Calibri', size=9, color='000080')
+        c.alignment = Alignment(horizontal='left', vertical='top')
+
+        # Value: sc+1 row 6
+        ws.merge_cells(start_row=6, start_column=sc_i+1, end_row=6, end_column=ec_i)
+        c = ws.cell(row=6, column=sc_i+1)
+        c.value = val
+        c.number_format = '#,##0'
+        c.font = Font(name='Calibri', size=20, bold=True, color=val_color)
+        c.alignment = Alignment(horizontal='left', vertical='center')
+
+        # Rp: sc+1 row 7
+        ws.merge_cells(start_row=7, start_column=sc_i+1, end_row=7, end_column=ec_i)
+        c = ws.cell(row=7, column=sc_i+1)
+        c.value = "Rp"
+        c.font = Font(name='Calibri', size=9, bold=True, color=val_color)
+        c.alignment = Alignment(horizontal='left', vertical='top')
+
+        # Borders & Background
+        for r_i in range(4, 8):
+            for c_i in range(sc_i, ec_i + 1):
+                cell = ws.cell(row=r_i, column=c_i)
+                # Apply outer border only
+                top_s = thin_s if r_i == 4 else Side(border_style=None)
+                bottom_s = thin_s if r_i == 7 else Side(border_style=None)
+                left_s = thin_s if c_i == sc_i else Side(border_style=None)
+                right_s = thin_s if c_i == ec_i else Side(border_style=None)
+                cell.border = Border(top=top_s, bottom=bottom_s, left=left_s, right=right_s)
+                cell.fill = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
+
+    ws.row_dimensions[4].height = 20
+    ws.row_dimensions[5].height = 14
+    ws.row_dimensions[6].height = 26
+    ws.row_dimensions[7].height = 14
+    ws.row_dimensions[8].height = 10 # Spacer below cards
+
+    # ──────────────────────────────────────────────
+    # HELPER TO BUILD CHART SECTIONS
+    # ──────────────────────────────────────────────
+    def _build_chart_section(start_row, title, chart_index_offset, is_penurunan):
+        ws.merge_cells(f'B{start_row}:U{start_row}')
+        s = ws[f'B{start_row}']; s.value = title
+        # Plain text formatting as requested, no background fill
+        s.font = Font(name='Calibri', size=14, bold=True, color='000080')
+        s.fill = PatternFill(fill_type=None)
+        s.alignment = Alignment(horizontal='left', vertical='center', indent=1)
+        ws.row_dimensions[start_row].height = 24
+
+        for lbl, sc, ec, color in [
+            ("DANA PIHAK KETIGA\n(Rp Miliar)", 'B', 'F', '1E3A8A'),
+            ("TABUNGAN\n(Rp Miliar)", 'G', 'K', '2563EB'),
+            ("GIRO\n(Rp Miliar)", 'L', 'P', 'F97316'),
+            ("DEPOSITO\n(Rp Miliar)", 'Q', 'U', '16A34A')
+        ]:
+            ws.merge_cells(f'{sc}{start_row+1}:{ec}{start_row+1}')
+            c = ws[f'{sc}{start_row+1}']; c.value = lbl
+            c.font = Font(name='Calibri', size=9, bold=True, color='FFFFFF')
+            c.fill = PatternFill(start_color=color, end_color=color, fill_type='solid')
+            c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        ws.row_dimensions[start_row+1].height = 28
+
+        for idx, (anchor, color) in enumerate([('B', '1E3A8A'), ('G', '2563EB'), ('L', 'F97316'), ('Q', '16A34A')]):
+            chart_data = chart_data_ranges[chart_index_offset + idx]
+            min_r, max_r, kc_col, val_col = chart_data
+            
+            c = BarChart()
+            c.type = "bar"
+            c.width = 11.5; c.height = 7.5; c.gapWidth = 100; c.legend = None
+            c.visible_cells_only = False
+            
+            if max_r >= min_r:
+                c.add_data(Reference(ws, min_col=val_col, min_row=min_r, max_row=max_r))
+                c.set_categories(Reference(ws, min_col=kc_col, min_row=min_r, max_row=max_r))
+            
+            c.y_axis.numFmt = '#,##0.##'
+            c.x_axis.tickLblPos = "low" # Ensures KC names are on the far left
+            
+            if c.series:
+                c.series[0].graphicalProperties.solidFill = color if not is_penurunan else '1E3A8A' # Use dark blue for all bars like screenshot? Actually use theme color or green/orange
+                
+                # Based on user screenshot, chart colors match the header colors!
+                c.series[0].graphicalProperties.solidFill = color
+                
+                dl = DataLabelList()
+                dl.showVal = True
+                dl.position = "outEnd" # Label outside the end of the bar
+                c.series[0].dLbls = dl
+                
+            ws.add_chart(c, f"{anchor}{start_row+2}")
+
+    # ──────────────────────────────────────────────
+    # BUILD ALL 4 SECTIONS
+    # ──────────────────────────────────────────────
+    # chart_index_offset: 0=MTD Ken, 4=MTD Pen, 8=YTD Ken, 12=YTD Pen
+    _build_chart_section(9, f"KENAIKAN TERTINGGI MTD ({periode_terbaru})", 0, False)
+    _build_chart_section(25, f"PENURUNAN TERTINGGI MTD ({periode_terbaru})", 4, True)
+    _build_chart_section(41, f"KENAIKAN TERTINGGI YTD (1 JAN - {periode_terbaru})", 8, False)
+    _build_chart_section(57, f"PENURUNAN TERTINGGI YTD (1 JAN - {periode_terbaru})", 12, True)
+
+    # ──────────────────────────────────────────────
+    # TIME SERIES SECTION (row 73-88)
+    # ──────────────────────────────────────────────
+    ws.merge_cells('B73:U73'); s = ws['B73']; s.value = "TREND PERKEMBANGAN DPK (Rp Miliar)"
+    s.font = Font(name='Calibri', size=14, bold=True, color='000080'); s.fill = PatternFill(fill_type=None)
+    s.alignment = Alignment(horizontal='left', vertical='center', indent=1); ws.row_dimensions[73].height = 24
+
+    ts = LineChart(); ts.width = 34; ts.height = 10; ts.y_axis.title = "Rp Miliar"; ts.x_axis.title = "Periode"; ts.title = "Trend DPK, Tabungan, Giro & Deposito"
+    ts.visible_cells_only = False
+    for j, c in enumerate(['1E3A8A', '2563EB', 'F97316', '16A34A']):
+        ts.add_data(Reference(ws, min_col=DC+33+j, min_row=TS_START, max_row=TS_END))
+        if j < len(ts.series): ts.series[j].graphicalProperties.line.solidFill = c
+    ts.set_categories(Reference(ws, min_col=DC+32, min_row=TS_START, max_row=TS_END))
+    ts.y_axis.numFmt = '#,##0'; ws.add_chart(ts, "B74")
+
+    # ──────────────────────────────────────────────
+    # FOOTER & CLEANUP
+    # ──────────────────────────────────────────────
+    fr = 89
+    ws.merge_cells(f'B{fr}:U{fr}'); fc = ws[f'B{fr}']; fc.value = "Catatan: Data bersifat rahasia dan hanya untuk penggunaan internal."
+    fc.font = Font(name='Calibri', size=9, italic=True, color='FFFFFF'); fc.fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
+    fc.alignment = Alignment(horizontal='center', vertical='center'); ws.row_dimensions[fr].height = 18
+
+    for col_idx in range(22, max(120, ws.max_column + 5)): ws.column_dimensions[get_column_letter(col_idx)].hidden = True
     ws.sheet_view.showGridLines = False
 
-    assert ws.max_row >= 40, "Dashboard terlalu pendek, kemungkinan ada yang gagal"
-    print(f"[SUCCESS] Dashboard sheet berhasil dibuat dengan {ws.max_row} baris")
-
-
-
+    print(f"[SUCCESS] Dashboard selesai — footer di baris {fr}")
 
 # ────────────────────────────────────────────────────────────────────
 # EXPORT UTAMA
 # ────────────────────────────────────────────────────────────────────
+
+
+
 def export_to_excel(data_dict: dict,
                     output_path: str,
                     tanggal_data: str = "") -> Path:

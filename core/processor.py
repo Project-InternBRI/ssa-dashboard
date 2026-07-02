@@ -1391,14 +1391,78 @@ def process_files(
     n_s_berjalan = len(frames_s[0]) if frames_s else 0
     n_p_berjalan = len(frames_p[0]) if frames_p else 0
 
+    # ── 12. PROSES KCP DAN UNIT (DALAM SATU PASS) ─────────────────
+    try:
+        from core.processor_uker import process_uker_from_df
+        cb(48, "Memproses data KCP dan Unit...")
+        # Gunakan fungsi lambda untuk callback agar progress KCP/Unit berada di range 50-95
+        def cb_uker(pct, msg):
+            cb(50 + int(pct * 0.45), f"(KCP/Unit) {msg}")
+            
+        result_uker = process_uker_from_df(
+            df_s_all=df_s_all,
+            df_p_all=df_p_all,
+            callback=cb_uker,
+            uker_type_filter=None
+        )
+        
+        # Simpan hasil uker di dalam dict result
+        result['__uker_data__'] = result_uker
+        
+        stats_uker = result_uker.get('__stats__', {})
+        jumlah_kcp = stats_uker.get('jumlah_kcp', 0)
+        jumlah_unit = stats_uker.get('jumlah_unit', 0)
+        daftar_kcp = stats_uker.get('daftar_kcp', [])
+        daftar_unit = stats_uker.get('daftar_unit', [])
+        
+    except Exception as e:
+        print(f"[WARN] Gagal memproses KCP dan Unit: {e}")
+        jumlah_kcp = 0
+        jumlah_unit = 0
+        daftar_kcp = []
+        daftar_unit = []
+
+
+    # ── Ambil data produk simpanan dari Total AH Gunsar (periode terbaru) ─
+    produk_simpanan = {'tabungan': 0.0, 'giro': 0.0, 'deposito': 0.0, 'casa': 0.0, 'dpk': 0.0}
+    try:
+        lbl_terbaru_stat = periodes_sorted[-1][0] if periodes_sorted else None
+        if lbl_terbaru_stat and 'Total AH Gunsar' in result:
+            total_rows = result['Total AH Gunsar']['rows']
+            for r in total_rows:
+                lbl_r = r.get('label', '')
+                rtype = r.get('row_type', '')
+                if rtype in ('data', 'bold', 'header_value') and lbl_terbaru_stat in r.get('values', {}):
+                    val = r['values'][lbl_terbaru_stat]
+                    if val is None:
+                        val = 0.0
+                    lbl_lower = lbl_r.lower()
+                    if lbl_lower == 'tabungan' and produk_simpanan['tabungan'] == 0.0:
+                        produk_simpanan['tabungan'] = float(val)
+                    elif lbl_lower == 'giro' and produk_simpanan['giro'] == 0.0:
+                        produk_simpanan['giro'] = float(val)
+                    elif lbl_lower == 'deposito' and produk_simpanan['deposito'] == 0.0:
+                        produk_simpanan['deposito'] = float(val)
+                    elif lbl_lower == 'casa':
+                        produk_simpanan['casa'] = float(val)
+                    elif lbl_lower == 'dana pihak ketiga':
+                        produk_simpanan['dpk'] = float(val)
+    except Exception as e:
+        print(f"[WARN] Gagal membaca data produk simpanan: {e}")
+
     stats = {
         'jumlah_kc':              len(wilayah_found),
+        'jumlah_kcp':             jumlah_kcp,
+        'jumlah_unit':            jumlah_unit,
+        'daftar_kcp':             daftar_kcp,
+        'daftar_unit':            daftar_unit,
         'jumlah_sheet':           len(wilayah_found) + 1,
         'jumlah_periode':         len(periodes_sorted),
         'jumlah_baris_simpanan':  n_s_berjalan,
         'jumlah_baris_pinjaman':  n_p_berjalan,
         'jumlah_baris_total':     n_rows_s + n_rows_p,
         'daftar_kc':              wilayah_found,
+        'produk_simpanan':        produk_simpanan,
         # Info per file untuk popup
         'baris_simpanan_berjalan':  n_s_berjalan,
         'baris_pinjaman_berjalan':  n_p_berjalan,

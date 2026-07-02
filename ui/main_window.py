@@ -227,7 +227,7 @@ class MainWindow(QMainWindow):
             ("home.svg", "BERANDA"),
             ("input.svg", "INPUT RKA"),
             ("upload.svg", "UPLOAD"),
-            ("table.svg", "PREVIEW"),
+            ("dashboard.svg", "DASHBOARD"),
             ("history.svg", "RIWAYAT"),
         ]
 
@@ -327,7 +327,7 @@ class MainWindow(QMainWindow):
     def switch_page(self, index: int):
         _titles = [
             "Beranda", "Input RKA", "Upload & Generate",
-            "Preview Tabel", "Riwayat Generate"
+            "Dashboard Center", "Riwayat Generate"
         ]
         for i, item in enumerate(self._nav_items):
             item.set_active(i == index)
@@ -346,6 +346,15 @@ class MainWindow(QMainWindow):
     def _on_generate_finished(self, data_dict: dict, elapsed: float = 0.0):
         self._data_dict = data_dict
         self.page_preview.load_data(data_dict)
+        
+        # Pass file paths so KCP/Unit cards can call process_files_uker
+        self.page_preview.set_source_paths(
+            path_s_berjalan  = self.page_upload._path_s_berjalan,
+            path_p_berjalan  = self.page_upload._path_p_berjalan,
+            hist_s           = list(self.page_upload._hist_s),
+            hist_p           = list(self.page_upload._hist_p),
+        )
+        
         self.page_history.refresh()
         self._refresh_beranda()
 

@@ -1,23 +1,28 @@
-from core.processor import process_files
-import glob
+import traceback
+from core.processor_uker import process_uker_from_df
+import pandas as pd
 
-files_s = glob.glob('data/SSA Simpanan*.csv')
-files_p = glob.glob('data/SSA Pinjaman*.csv')
+try:
+    df_s_all = pd.DataFrame({
+        "Nama Uker": ["KCP A", "UNIT B", ""],
+        "Jenis Produk": ["Tabungan", "Giro", "Deposito"],
+        "Segmentasi BPR": ["Ritel", "Wholesale", "Ritel"],
+        "Saldo": ["1000", "2000", "3000"],
+        "Month, Day, Year of Posisi": ["10/24", "10/24", "10/24"],
+        "Nama Cabang": ["KC A", "KC A", "KC A"]
+    })
+    
+    df_p_all = pd.DataFrame({
+        "Nama Cabang": ["KC A", "KC A", "KC A"],
+        "Nama Uker": ["KCP A", "UNIT B", ""],
+        "Month, Day, Year of Periode": ["10/24", "10/24", "10/24"],
+        "Baki Debet": ["1000", "2000", "3000"],
+        "Kolektabilitas One Obligor": ["1", "2", "3"],
+        "Produk": ["Kupedes", "KUR", "Briguna"],
+        "SEGMEN_2025": ["Mikro", "Mikro", "Konsumer"]
+    })
 
-if files_s and files_p:
-    res = process_files(files_s, files_p, lambda x,y: None)
-    kem_rows = res['Kemayoran']['rows']
-    
-    # We want Dec-25 (Des-25) column index.
-    des_25_key = "Des-25" 
-    
-    print("Kemayoran Des-25:")
-    for r in kem_rows:
-        if r.get('row_type') == 'data':
-            if r.get('label') == 'Pinjaman - small':
-                print(f"  Small all kol  : {r.get('values', {}).get(des_25_key)}")
-            elif r.get('label') == 'small': # SML > Small
-                print(f"  SML Small Kol=2: {r.get('values', {}).get(des_25_key)}")
-            # Wait, NPL > Small label is also "small"
-            # How to distinguish? SML is before NPL.
-    
+    res = process_uker_from_df(df_s_all, df_p_all)
+    print("SUCCESS")
+except Exception as e:
+    traceback.print_exc()

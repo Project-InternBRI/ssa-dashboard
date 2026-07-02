@@ -1,461 +1,523 @@
-"""
-preview_table.py — Halaman Preview Tabel.
-
-Tab per KC. Setiap tab menampilkan tabel dengan kolom:
-  Mata Anggaran | POSISI (per periode) | RKA (kosong) |
-  Pencapaian RKA (—) | GROWTH (MTD | DTD | YOY | YTD)
-
-Dilengkapi toolbar (Export Excel, Generate Ulang, Search).
-"""
-from __future__ import annotations
-
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QFrame, QPushButton, QTabWidget, QTableWidget,
-                               QTableWidgetItem, QHeaderView, QLineEdit,
-                               QScrollArea, QAbstractItemView, QFileDialog)
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QCursor, QColor, QFont, QBrush
-
-from core.exporter import export_to_excel
-from ui.toast_notification import ToastManager
-
-# Warna baris
-COLORS = {
-    "header":   "#FFFFFF",
-    "data_a":   "#FFFFFF",
-    "data_b":   "#F8FAFC",
-    "subtotal": "#EBF2FA",
-    "total":    "#1F4E78",
-}
-FONT_TOTAL = QColor("#FFFFFF")
-FONT_DARK  = QColor("#1E293B")
-FONT_DIM   = QColor("#64748B")
-FONT_RED   = QColor("#DC2626")
-
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
+                               QFrame, QPushButton, QScrollArea, QSizePolicy, QGridLayout, QGraphicsDropShadowEffect)
+from PySide6.QtCore import Qt, QSize, Signal, QTimer, QDateTime
+from PySide6.QtGui import QFont, QColor, QCursor, QIcon, QPixmap, QPainter, QBrush, QPen
+import os
 
 class PreviewTableWidget(QWidget):
     navigate_to = Signal(int)
-
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self._data: dict = {}
+        self._card_stat_labels = {}  # {card_key: QLabel}
+        # File paths — diset dari main_window setelah generate
+        self._path_s_berjalan: str | None = None
+        self._path_p_berjalan: str | None = None
+        self._hist_s: list = []
+        self._hist_p: list = []
         self._init_ui()
+        
+        # Timer for live clock
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_clock)
+        self.timer.start(1000)
+        self.update_clock()
+        
+        self.show_empty_cleared()
+    
+    def set_source_paths(self, path_s_berjalan, path_p_berjalan,
+                         hist_s=None, hist_p=None):
+        """Simpan path file SSA agar kartu KCP/Unit bisa export secara mandiri."""
+        self._path_s_berjalan = path_s_berjalan
+        self._path_p_berjalan = path_p_berjalan
+        self._hist_s = hist_s or []
+        self._hist_p = hist_p or []
+        
 
-    # ── BUILD UI ────────────────────────────────────────────────
     def _init_ui(self):
+        # Root layout
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-
-        # Toolbar
-        self._toolbar = self._build_toolbar()
-        root.addWidget(self._toolbar)
-
-        # Tab widget
-        self._tabs = QTabWidget()
-        self._tabs.setStyleSheet("""
-            QTabWidget::pane { border: none; background: #FFFFFF; border-top: 1px solid #E2EAF4; }
-            QTabBar::tab {
-                background: #F8FAFC; color: #64748B; padding: 10px 20px;
-                border-top-left-radius: 6px; border-top-right-radius: 6px;
-                font-size: 13px; font-weight: bold;
-                border: none; margin-right: 2px;
+        
+        # Scroll area for the whole dashboard
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea { background-color: #F8FAFC; }")
+        
+        content_widget = QWidget()
+        content_widget.setObjectName("main_content")
+        content_widget.setStyleSheet("QWidget#main_content { background-color: #F8FAFC; }")
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(40, 40, 40, 40)
+        content_layout.setSpacing(24)
+        
+        # 1. Header Row
+        header_row = QHBoxLayout()
+        title_col = QVBoxLayout()
+        title_lbl = QLabel("Dashboard Center")
+        title_lbl.setStyleSheet("font-size: 24px; font-weight: bold; color: #0F172A;")
+        sub_lbl = QLabel("Pusat informasi dashboard hasil generate")
+        sub_lbl.setStyleSheet("font-size: 14px; color: #64748B;")
+        title_col.addWidget(title_lbl)
+        title_col.addWidget(sub_lbl)
+        
+        header_row.addLayout(title_col)
+        header_row.addStretch()
+        
+        # Clock
+        self.clock_lbl = QLabel()
+        self.clock_lbl.setStyleSheet("font-size: 13px; color: #64748B; font-weight: 500;")
+        header_row.addWidget(self.clock_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
+        
+        content_layout.addLayout(header_row)
+        
+        # 2. Banner Card
+        banner = QFrame()
+        banner.setStyleSheet("""
+            QFrame#banner {
+                background-color: #EFF6FF;
+                border: 1px solid #DBEAFE;
+                border-radius: 16px;
             }
-            QTabBar::tab:selected { background: #FFFFFF; color: #2563EB; border-top: 3px solid #2563EB; }
-            QTabBar::tab:hover:!selected { background: #F1F5F9; color: #1E293B; }
         """)
-        root.addWidget(self._tabs)
-
-        # Empty state
-        self._empty = self._build_empty()
-        root.addWidget(self._empty)
-
-        self._show_empty()
-
-    def _build_toolbar(self) -> QFrame:
-        fr = QFrame()
-        fr.setFixedHeight(64)
-        fr.setStyleSheet("""
-            QFrame { background: #FFFFFF; border-bottom: 1px solid #E2EAF4; }
+        banner.setObjectName("banner")
+        
+        # Add shadow to banner
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(20)
+        shadow.setColor(QColor(0, 0, 0, 15))
+        shadow.setOffset(0, 4)
+        banner.setGraphicsEffect(shadow)
+        
+        banner_layout = QHBoxLayout(banner)
+        banner_layout.setContentsMargins(30, 24, 30, 24)
+        banner_layout.setSpacing(20)
+        
+        # Success Icon (left)
+        self.icon_bg_frame = QFrame()
+        self.icon_bg_frame.setFixedSize(110, 110)
+        self.icon_bg_frame.setStyleSheet("background-color: #FFFFFF; border-radius: 55px;")
+        
+        icon_layout = QVBoxLayout(self.icon_bg_frame)
+        icon_layout.setContentsMargins(0, 0, 0, 0)
+        icon_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.icon_status = QLabel()
+        self.icon_status.setFixedSize(80, 80)
+        self.icon_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        icon_layout.addWidget(self.icon_status)
+        banner_layout.addWidget(self.icon_bg_frame)
+        
+        # Banner Text
+        banner_text_col = QVBoxLayout()
+        banner_text_col.setSpacing(6)
+        self.b_title = QLabel("Menunggu Proses Generate")
+        self.b_title.setStyleSheet("font-size: 18px; font-weight: bold; color: #1E293B; background: transparent;")
+        self.b_sub = QLabel("Silakan upload file SSA dan lakukan generate data.")
+        self.b_sub.setStyleSheet("font-size: 14px; color: #64748B; background: transparent;")
+        
+        footer_layout = QHBoxLayout()
+        footer_layout.setContentsMargins(0, 8, 0, 0)
+        
+        footer_icon = QLabel()
+        footer_icon.setFixedSize(16, 16)
+        path_history = "assets/icons/history.svg"
+        if os.path.exists(path_history):
+            pix = QPixmap(path_history).scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            pix.setDevicePixelRatio(2.0)
+            footer_icon.setPixmap(pix)
+        footer_icon.setStyleSheet("background: transparent;")
+        
+        self.last_gen_lbl = QLabel("Terakhir di-generate: Belum ada data")
+        self.last_gen_lbl.setStyleSheet("font-size: 12px; color: #94A3B8; background: transparent;")
+        
+        footer_layout.addWidget(footer_icon)
+        footer_layout.addWidget(self.last_gen_lbl)
+        footer_layout.addStretch()
+        
+        banner_text_col.addWidget(self.b_title)
+        banner_text_col.addWidget(self.b_sub)
+        banner_text_col.addLayout(footer_layout)
+        
+        banner_layout.addLayout(banner_text_col)
+        
+        banner_layout.addStretch()
+        
+        # Center Illustration
+        self.illus_lbl = QLabel()
+        self.illus_lbl.setFixedSize(260, 130)
+        self.illus_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        banner_layout.addWidget(self.illus_lbl)
+        
+        banner_layout.addSpacing(20)
+        
+        # Divider
+        div = QFrame()
+        div.setFixedWidth(2)
+        div.setStyleSheet("background-color: #BFDBFE; border: none;")
+        banner_layout.addWidget(div)
+        
+        banner_layout.addSpacing(20)
+        
+        # Right Stats
+        stat_col = QVBoxLayout()
+        self.stat_num = QLabel("4")
+        self.stat_num.setStyleSheet("font-size: 48px; font-weight: 900; color: #2563EB; background: transparent;")
+        self.stat_num.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.stat_lbl1 = QLabel("Dashboard")
+        self.stat_lbl1.setStyleSheet("font-size: 14px; color: #2563EB; font-weight: bold; background: transparent;")
+        self.stat_lbl1.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.stat_lbl2 = QLabel("Siap Digunakan")
+        self.stat_lbl2.setStyleSheet("font-size: 14px; color: #2563EB; font-weight: bold; background: transparent;")
+        self.stat_lbl2.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        stat_col.addWidget(self.stat_num)
+        stat_col.addWidget(self.stat_lbl1)
+        stat_col.addWidget(self.stat_lbl2)
+        
+        banner_layout.addLayout(stat_col)
+        content_layout.addWidget(banner)
+        
+        # 3. Section Title
+        sec_row = QHBoxLayout()
+        sec_col = QVBoxLayout()
+        sec_title = QLabel("Pilih Dashboard yang Ingin Diekspor")
+        sec_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #0F172A;")
+        sec_sub = QLabel("Pilih salah satu dashboard di bawah untuk mengekspor hasil analisis dalam format yang tersedia.")
+        sec_sub.setStyleSheet("font-size: 13px; color: #64748B;")
+        sec_col.addWidget(sec_title)
+        sec_col.addWidget(sec_sub)
+        
+        sec_row.addLayout(sec_col)
+        sec_row.addStretch()
+        
+        btn_refresh = QPushButton(" ↻ Refresh Data")
+        btn_refresh.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        btn_refresh.setStyleSheet("""
+            QPushButton {
+                background: #FFFFFF; border: 1px solid #E2E8F0;
+                border-radius: 8px; padding: 8px 16px;
+                color: #475569; font-weight: 600; font-size: 13px;
+            }
+            QPushButton:hover { background: #F8FAFC; border-color: #CBD5E1; }
         """)
-        lay = QHBoxLayout(fr)
-        lay.setContentsMargins(24, 0, 24, 0)
-        lay.setSpacing(12)
+        sec_row.addWidget(btn_refresh, 0, Qt.AlignmentFlag.AlignVCenter)
+        
+        content_layout.addLayout(sec_row)
+        
+        # 4. Cards Layout (4 Columns)
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(20)
+        
+        # Card definitions: (key, color, icon_path, title, desc, stat_title, export_label)
+        cards_config = [
+            {
+                "key": "kc",
+                "color": "#2563EB",           # Biru – sesuai warna KC pada screenshot
+                "icon_path": "assets/illus_logo_kc_dash.png",
+                "title": "KC\nDashboard",
+                "desc": "Menampilkan performa dan pencapaian seluruh Kantor Cabang (KC).",
+                "stat_title": "Total KC",
+            },
+            {
+                "key": "kcp",
+                "color": "#0EA5E9",           # Biru muda – KCP Dashboard
+                "icon_path": "assets/illus_logo_kcp_dash.png",
+                "title": "KCP\nDashboard",
+                "desc": "Menampilkan performa dan pencapaian seluruh KCP.",
+                "stat_title": "Total KCP",
+            },
+            {
+                "key": "unit",
+                "color": "#F97316",           # Oranye – Unit Dashboard
+                "icon_path": "assets/illus_logo_unit_dash.png",
+                "title": "Unit\nDashboard",
+                "desc": "Menampilkan performa dan komposisi unit kerja.",
+                "stat_title": "Total Unit",
+            },
+            {
+                "key": "produk",
+                "color": "#1E3A8A",           # Biru tua – Monitoring Produk
+                "icon_path": "assets/illus_logo_moni_dash.png",
+                "title": "Monitoring Produk\nDashboard",
+                "desc": "Menampilkan monitoring kinerja produk simpanan (Tabungan, Giro, Deposito, CASA, DPK).",
+                "stat_title": "Produk Simpanan",
+            },
+        ]
+        
+        for cfg in cards_config:
+            c, stat_lbl = self._build_export_card(cfg)
+            self._card_stat_labels[cfg["key"]] = stat_lbl
+            cards_layout.addWidget(c)
+            
+        content_layout.addLayout(cards_layout)
+        content_layout.addStretch()
+        
+        scroll.setWidget(content_widget)
+        root.addWidget(scroll)
 
-        # Search
-        self._search = QLineEdit()
-        self._search.setPlaceholderText("Cari mata anggaran, segmen, produk...")
-        self._search.setFixedHeight(36)
-        self._search.setMinimumWidth(300)
-        self._search.setStyleSheet("""
-            QLineEdit { background: #F8FAFC; border: 1px solid #E2EAF4;
-                border-radius: 8px; padding: 0 12px; font-size: 13px; }
-            QLineEdit:focus { border-color: #93C5FD; }
+    def _build_export_card(self, data: dict):
+        """Build an export card. Returns (card_widget, stat_val_label)."""
+        color = data["color"]
+        key = data["key"]
+        
+        # Lighten the color for icon background (10% opacity)
+        icon_bg_colors = {
+            "#2563EB": "#DBEAFE",
+            "#0EA5E9": "#E0F2FE",
+            "#F97316": "#FFEDD5",
+            "#1E3A8A": "#DBEAFE",
+        }
+        icon_bg = icon_bg_colors.get(color, "#EFF6FF")
+        
+        card = QFrame()
+        card.setObjectName(f"card_{key}")
+        card.setStyleSheet(f"""
+            QFrame#card_{key} {{
+                background: #FFFFFF;
+                border: 1.5px solid #E2E8F0;
+                border-radius: 16px;
+            }}
         """)
-        self._search.textChanged.connect(self._filter_rows)
-
-        lay.addWidget(self._search)
-        lay.addStretch()
-
-        # Tombol Generate Ulang
-        btn_gen = QPushButton("Generate Ulang")
-        btn_gen.setFixedHeight(36)
-        btn_gen.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        btn_gen.setStyleSheet("""
-            QPushButton { background: #EFF6FF; color: #2563EB; border: none;
-                border-radius: 8px; padding: 0 16px; font-weight: bold; font-size: 13px; }
-            QPushButton:hover { background: #DBEAFE; }
-        """)
-        btn_gen.clicked.connect(lambda: self.navigate_to.emit(2))
-
-        # Tombol Export Excel
-        self._btn_export = QPushButton("Export Semua")
-        self._btn_export.setFixedHeight(36)
-        self._btn_export.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self._btn_export.setEnabled(False)
-        self._btn_export.setStyleSheet("""
-            QPushButton { background: #16A34A; color: #FFFFFF; border: none;
-                border-radius: 8px; padding: 0 16px; font-weight: bold; font-size: 13px; }
-            QPushButton:hover { background: #15803D; }
-            QPushButton:disabled { background: #CBD5E1; color: #FFFFFF; }
-        """)
-        self._btn_export.clicked.connect(self._export)
-
-        # Tombol Export Sheet Ini
-        self._btn_export_sheet = QPushButton("Export Sheet Ini")
-        self._btn_export_sheet.setFixedHeight(36)
-        self._btn_export_sheet.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self._btn_export_sheet.setEnabled(False)
-        self._btn_export_sheet.setStyleSheet("""
-            QPushButton { background: #2563EB; color: #FFFFFF; border: none;
-                border-radius: 8px; padding: 0 16px; font-weight: bold; font-size: 13px; }
-            QPushButton:hover { background: #1D4ED8; }
-            QPushButton:disabled { background: #CBD5E1; color: #FFFFFF; }
-        """)
-        self._btn_export_sheet.clicked.connect(self._export_sheet)
-
-        lay.addWidget(btn_gen)
-        lay.addWidget(self._btn_export_sheet)
-        lay.addWidget(self._btn_export)
-        return fr
-
-    def _build_empty(self) -> QWidget:
-        w = QWidget()
-        w.setStyleSheet("background: #F8FAFC;")
-        lay = QVBoxLayout(w)
-        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(18)
+        shadow.setColor(QColor(37, 99, 235, 12))
+        shadow.setOffset(0, 4)
+        card.setGraphicsEffect(shadow)
+        
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(20, 22, 20, 20)
         lay.setSpacing(14)
-
-        t1 = QLabel("Belum Ada Data Preview")
-        t1.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        t1.setStyleSheet("font-size: 20px; font-weight: bold; color: #1E293B;")
-        t2 = QLabel("Lakukan generate terlebih dahulu untuk melihat preview tabel")
-        t2.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        t2.setStyleSheet("font-size: 14px; color: #64748B;")
-
-        btn = QPushButton("Generate Sekarang")
-        btn.setFixedHeight(40)
-        btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        btn.setStyleSheet("""
-            QPushButton { background: #2563EB; color: #FFFFFF; border-radius: 8px;
-                padding: 0 24px; font-weight: bold; font-size: 14px; border: none; }
-            QPushButton:hover { background: #1D4ED8; }
+        
+        # ── Header: Icon circle + Title ─────────────────────────────
+        h_lay = QHBoxLayout()
+        h_lay.setSpacing(14)
+        
+        icon_circle = QFrame()
+        icon_circle.setFixedSize(64, 64)
+        icon_circle.setStyleSheet(
+            f"background-color: {icon_bg}; border-radius: 32px; border: none;"
+        )
+        icon_inner = QVBoxLayout(icon_circle)
+        icon_inner.setContentsMargins(0, 0, 0, 0)
+        icon_inner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        icon_lbl = QLabel()
+        icon_lbl.setFixedSize(44, 44)
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl.setStyleSheet("background: transparent;")
+        if os.path.exists(data["icon_path"]):
+            pix = QPixmap(data["icon_path"]).scaled(88, 88, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            pix.setDevicePixelRatio(2.0)
+            icon_lbl.setPixmap(pix)
+        icon_inner.addWidget(icon_lbl)
+        h_lay.addWidget(icon_circle)
+        
+        title_lbl = QLabel(data["title"])
+        title_lbl.setStyleSheet(
+            f"font-size: 14px; font-weight: 800; color: {color}; background: transparent; line-height: 1.4;"
+        )
+        h_lay.addWidget(title_lbl)
+        h_lay.addStretch()
+        lay.addLayout(h_lay)
+        
+        # ── Description ─────────────────────────────────────────────
+        desc_lbl = QLabel(data["desc"])
+        desc_lbl.setWordWrap(True)
+        desc_lbl.setStyleSheet("font-size: 12px; color: #64748B; background: transparent; min-height: 36px;")
+        lay.addWidget(desc_lbl)
+        
+        # ── Stat Card ───────────────────────────────────────────────
+        stat_frame = QFrame()
+        stat_frame.setStyleSheet(
+            f"background: {icon_bg}; border-radius: 10px; border: none;"
+        )
+        stat_lay = QVBoxLayout(stat_frame)
+        stat_lay.setContentsMargins(14, 10, 14, 10)
+        stat_lay.setSpacing(2)
+        
+        stitle = QLabel(data["stat_title"])
+        stitle.setStyleSheet("font-size: 11px; color: #64748B; background: transparent;")
+        stat_lay.addWidget(stitle)
+        
+        stat_val_lbl = QLabel("Tidak ada data")
+        stat_val_lbl.setStyleSheet(
+            f"font-size: 22px; font-weight: 900; color: {color}; background: transparent;"
+        )
+        stat_lay.addWidget(stat_val_lbl)
+        
+        lay.addWidget(stat_frame)
+        lay.addStretch()
+        
+        # ── Export Button (solid color) ──────────────────────────────
+        btn_exp = QPushButton("Ekspor Dashboard")
+        btn_exp.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        
+        # Darken color on hover
+        hover_colors = {
+            "#2563EB": "#1D4ED8",
+            "#0EA5E9": "#0284C7",
+            "#F97316": "#EA6800",
+            "#1E3A8A": "#172554",
+        }
+        hover = hover_colors.get(color, color)
+        btn_exp.setStyleSheet(f"""
+            QPushButton {{
+                background: {color};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 11px 16px;
+                font-weight: 700;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{ background: {hover}; }}
+            QPushButton:pressed {{ background: {hover}; }}
         """)
-        btn.clicked.connect(lambda: self.navigate_to.emit(2))
+        
+        # Hubungkan ke handler yang sesuai untuk setiap kartu
+        if key == "kc":
+            btn_exp.clicked.connect(self._export)
+        elif key == "kcp":
+            btn_exp.clicked.connect(self._export_kcp)
+        elif key == "unit":
+            btn_exp.clicked.connect(self._export_unit)
+        elif key == "produk":
+            btn_exp.clicked.connect(self._export_produk)
+        else:
+            btn_exp.clicked.connect(self._export)
+        
+        lay.addWidget(btn_exp)
+        
+        return card, stat_val_lbl
 
-        lay.addWidget(t1)
-        lay.addWidget(t2)
-        lay.addSpacing(8)
-        lay.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
-        return w
 
-    # ── LOAD DATA ────────────────────────────────────────────────
+    def update_clock(self):
+        now = QDateTime.currentDateTime()
+        self.clock_lbl.setText(now.toString("ddd, dd MMM yyyy • HH:mm WIB"))
+        
     def load_data(self, data_dict: dict):
         self._data = data_dict
-        if not data_dict:
-            self._show_empty()
-            return
-
-        self._tabs.clear()
-        self._empty.hide()
-        self._toolbar.show()
-        self._tabs.show()
-        self._btn_export.setEnabled(True)
-        self._btn_export_sheet.setEnabled(True)
-
-        # Buat tab per KC — Total AH Gunsar terakhir
-        kc_names = [k for k in data_dict if k not in ("Total AH Gunsar", "__stats__")]
-        if "Total AH Gunsar" in data_dict:
-            kc_names.append("Total AH Gunsar")
-
-        for kc in kc_names:
-            kc_data = data_dict[kc]
-            short   = kc_data.get("kc_short", kc)[:20]
-            widget  = self._build_tab(kc, kc_data)
-            self._tabs.addTab(widget, short)
+        if data_dict:
+            now = QDateTime.currentDateTime().toString("dd MMM yyyy • HH:mm WIB")
+            self.last_gen_lbl.setText(f"Terakhir di-generate: {now}")
+            self.b_title.setText("Semua data berhasil diproses!")
+            self.b_sub.setText("4 dashboard berhasil dibuat dari file yang di-upload.")
+            
+            path_done = "assets/gambar_file_dashboard_done.png"
+            if os.path.exists(path_done):
+                pix = QPixmap(path_done).scaled(160, 160, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                pix.setDevicePixelRatio(2.0)
+                self.icon_status.setPixmap(pix)
+                self.icon_status.setStyleSheet("background: transparent;")
+            else:
+                self.icon_status.setText("✔")
+                self.icon_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.icon_status.setStyleSheet("font-size: 32px; color: #2563EB; background: transparent;")
+                
+            path_illus = "assets/illust_dash_done_alpha.png"
+            if os.path.exists(path_illus):
+                pix = QPixmap(path_illus).scaled(520, 260, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                pix.setDevicePixelRatio(2.0)
+                self.illus_lbl.setPixmap(pix)
+                self.illus_lbl.setStyleSheet("background: transparent;")
+            else:
+                self.illus_lbl.setText("[Illustration]")
+                self.illus_lbl.setStyleSheet("color: #CBD5E1; border: 1px dashed #E2E8F0; border-radius: 8px; background: transparent;")
+                
+            self.stat_num.setText("4")
+            self.stat_num.setStyleSheet("font-size: 48px; font-weight: 900; color: #2563EB; background: transparent;")
+            self.stat_lbl1.setText("Dashboard")
+            self.stat_lbl1.setStyleSheet("font-size: 14px; color: #2563EB; font-weight: bold; background: transparent;")
+            self.stat_lbl2.setText("Siap Digunakan")
+            self.stat_lbl2.setStyleSheet("font-size: 14px; color: #2563EB; font-weight: bold; background: transparent;")
+            
+            # ── Update card stat labels dari __stats__ ──
+            stats = data_dict.get('__stats__', {})
+            
+            # KC card
+            if 'kc' in self._card_stat_labels:
+                n_kc = stats.get('jumlah_kc', len([k for k in data_dict if k not in ('Total AH Gunsar', '__stats__')]))
+                self._card_stat_labels['kc'].setText(str(n_kc) if n_kc else 'Tidak ada data')
+            
+            # KCP card
+            if 'kcp' in self._card_stat_labels:
+                n_kcp = stats.get('jumlah_kcp', 0)
+                self._card_stat_labels['kcp'].setText(str(n_kcp) if n_kcp else 'Tidak ada data')
+            
+            # Unit card
+            if 'unit' in self._card_stat_labels:
+                n_unit = stats.get('jumlah_unit', 0)
+                self._card_stat_labels['unit'].setText(str(n_unit) if n_unit else 'Tidak ada data')
+            
+            # Monitoring Produk card — tampilkan ringkasan tabungan/giro/deposito/casa/dpk
+            if 'produk' in self._card_stat_labels:
+                ps = stats.get('produk_simpanan', {})
+                if ps and any(v > 0 for v in ps.values()):
+                    self._card_stat_labels['produk'].setText('5 Produk')
+                else:
+                    self._card_stat_labels['produk'].setText('Tidak ada data')
 
     def show_empty_cleared(self):
-        """
-        Tampilkan empty state khusus saat file wajib di-clear.
-        Data preview dihapus dan tombol export dinonaktifkan.
-        """
         self._data = {}
-        self._tabs.clear()
-        self._tabs.hide()
-        self._btn_export.setEnabled(False)
-        self._btn_export_sheet.setEnabled(False)
-
-        # Rebuild empty widget dengan pesan khusus
-        # Hapus empty state lama
-        old = self._empty
-        if old:
-            old.hide()
-
-        w = QWidget()
-        w.setStyleSheet("background: #F8FAFC;")
-        lay = QVBoxLayout(w)
-        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.setSpacing(14)
-
-        t1 = QLabel("Data Tidak Tersedia")
-        t1.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        t1.setStyleSheet(
-            "font-size: 17px; font-weight: 700; color: #64748B;")
-
-        t2 = QLabel(
-            "File SSA telah dihapus. Upload ulang dan generate kembali.")
-        t2.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        t2.setStyleSheet("font-size: 13px; color: #94A3B8;")
-
-        btn = QPushButton("Upload File")
-        btn.setFixedHeight(38)
-        btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        btn.setStyleSheet("""
-            QPushButton {
-                background: #2563EB; color: white;
-                border-radius: 8px; padding: 0 24px;
-                font-weight: 600; font-size: 13px; border: none;
-            }
-            QPushButton:hover { background: #1D4ED8; }
-        """)
-        btn.clicked.connect(lambda: self.navigate_to.emit(2))
-
-        lay.addWidget(t1)
-        lay.addWidget(t2)
-        lay.addSpacing(8)
-        lay.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        # Insert ke root layout
-        self.layout().addWidget(w)
-        self._empty = w
-        w.show()
-
-    def _build_tab(self, kc_name: str, kc_data: dict) -> QWidget:
-        """Buat satu tab berisi QTableWidget."""
-        w   = QWidget()
-        lay = QVBoxLayout(w)
-        lay.setContentsMargins(0, 0, 0, 0)
-
-        rows_all  = kc_data.get("rows", [])
-        rows_dpk  = kc_data.get("rows_dpk", [])
-        rows_pinj = kc_data.get("rows_pinjaman", [])
-        periodes  = kc_data.get("periode_list", [])
-        mtd_lbl   = kc_data.get("mtd_label", "MTD")
-        dtd_lbl   = kc_data.get("dtd_label", "DTD")
-        yoy_lbl   = kc_data.get("yoy_label", "YOY")
-        ytd_lbl   = kc_data.get("ytd_label", "YTD")
-
-        # Kolom: Mata Anggaran + periode + 4 Growth
-        col_headers = (["Mata Anggaran"] + periodes +
-                       [mtd_lbl, dtd_lbl, yoy_lbl, ytd_lbl])
-
-        all_rows = []
-        if rows_all:
-            all_rows = rows_all
+        self.last_gen_lbl.setText("Terakhir di-generate: Belum ada data")
+        self.b_title.setText("Menunggu Proses Generate")
+        self.b_sub.setText("Silakan upload file SSA dan lakukan generate data.")
+        
+        path_wait = "assets/gambar_file_dashboard_wait.png"
+        if os.path.exists(path_wait):
+            pix = QPixmap(path_wait).scaled(160, 160, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            pix.setDevicePixelRatio(2.0)
+            self.icon_status.setPixmap(pix)
+            self.icon_status.setStyleSheet("background: transparent;")
         else:
-            if rows_dpk:
-                all_rows.append({"row_type": "__section__", "label": f"DPK — {kc_name}"})
-                all_rows.extend(rows_dpk)
-            if rows_pinj:
-                all_rows.append({"row_type": "__section__", "label": f"PINJAMAN — {kc_name}"})
-                all_rows.extend(rows_pinj)
+            self.icon_status.setText("⏳")
+            self.icon_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.icon_status.setStyleSheet("font-size: 32px; color: #F59E0B; background: transparent;")
+            
+        path_illus = "assets/illust_dash_wait_alpha.png"
+        if os.path.exists(path_illus):
+            pix = QPixmap(path_illus).scaled(520, 260, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            pix.setDevicePixelRatio(2.0)
+            self.illus_lbl.setPixmap(pix)
+            self.illus_lbl.setStyleSheet("background: transparent;")
+        else:
+            self.illus_lbl.setText("[Illustration]")
+            self.illus_lbl.setStyleSheet("color: #CBD5E1; border: 1px dashed #E2E8F0; border-radius: 8px; background: transparent;")
+            
+        self.stat_num.setText("0")
+        self.stat_num.setStyleSheet("font-size: 48px; font-weight: 900; color: #F97316; background: transparent;")
+        self.stat_lbl1.setText("Dashboard")
+        self.stat_lbl1.setStyleSheet("font-size: 14px; color: #F97316; font-weight: bold; background: transparent;")
+        self.stat_lbl2.setText("Belum Tersedia")
+        self.stat_lbl2.setStyleSheet("font-size: 14px; color: #F97316; font-weight: bold; background: transparent;")
+        
+        # Reset semua card stat labels
+        for lbl in self._card_stat_labels.values():
+            lbl.setText("Tidak ada data")
 
-        tbl = QTableWidget(len(all_rows), len(col_headers))
-        tbl.setHorizontalHeaderLabels(col_headers)
-        tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        tbl.setAlternatingRowColors(False)
-        tbl.verticalHeader().setVisible(False)
-        tbl.setFrameShape(QFrame.Shape.NoFrame)
-        tbl.setGridStyle(Qt.PenStyle.SolidLine)
-        tbl.setStyleSheet("""
-            QTableWidget { background: #FFFFFF; gridline-color: #F1F5F9; border: none; }
-            QHeaderView::section {
-                background-color: #1E3A5F; color: #FFFFFF; font-weight: bold;
-                font-size: 12px; padding: 8px; border: none;
-                border-right: 1px solid #2A5080; border-bottom: 1px solid #2A5080;
-            }
-            QTableWidget::item:selected { background: #EFF6FF; color: #1E3A5F; }
-        """)
-
-        # Resize kolom
-        hh = tbl.horizontalHeader()
-        hh.setDefaultSectionSize(120)
-        hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
-        tbl.setColumnWidth(0, 220)
-
-        n_p = len(periodes)
-        for i in range(1, n_p + 1):
-            tbl.setColumnWidth(i, 110)
-        for i in range(n_p + 1, n_p + 5):
-            tbl.setColumnWidth(i, 130)
-
-        # Isi baris
-        for r_idx, row_data in enumerate(all_rows):
-            row_type = row_data.get("row_type", "data")
-            label    = row_data.get("label", "")
-            values   = row_data.get("values", {})
-            mtd_v    = row_data.get("mtd", 0)
-            dtd_v    = row_data.get("dtd", 0)
-            yoy_v    = row_data.get("yoy", 0)
-            ytd_v    = row_data.get("ytd", 0)
-
-            # Section separator (old format)
-            if row_type == "__section__":
-                for c in range(len(col_headers)):
-                    item = QTableWidgetItem(label if c == 0 else "")
-                    item.setBackground(QBrush(QColor("#0F2A4A")))
-                    item.setForeground(QBrush(QColor("#FFFFFF")))
-                    f = QFont()
-                    f.setBold(True)
-                    item.setFont(f)
-                    tbl.setItem(r_idx, c, item)
-                tbl.setRowHeight(r_idx, 26)
-                continue
-
-            # Separator (new format — baris biru solid tipis)
-            if row_type == "separator":
-                for c in range(len(col_headers)):
-                    item = QTableWidgetItem("")
-                    item.setBackground(QBrush(QColor("#1E3A5F")))
-                    tbl.setItem(r_idx, c, item)
-                tbl.setRowHeight(r_idx, 8)
-                continue
-
-            # Pilih warna baris
-            font_obj = QFont()
-            if row_type == "total":
-                bg_clr = QColor(COLORS["total"])
-                fg_clr = FONT_TOTAL
-                font_obj.setBold(True)
-            elif row_type == "subtotal":
-                bg_clr = QColor(COLORS["subtotal"])
-                fg_clr = FONT_DARK
-                font_obj.setBold(True)
-                font_obj.setItalic(True)
-            elif row_type == "header":
-                bg_clr = QColor(COLORS["header"])
-                fg_clr = FONT_DARK
-                font_obj.setBold(True)
-            elif row_type == "bold":
-                bg_clr = QColor(COLORS.get("subtotal", "#EFF6FF"))
-                fg_clr = FONT_DARK
-                font_obj.setBold(True)
-            else:
-                bg_clr = QColor(COLORS["data_a"] if r_idx % 2 == 0
-                                 else COLORS["data_b"])
-                fg_clr = FONT_DARK
-                font_obj.setBold(False)
-
-            tbl.setRowHeight(r_idx, 28)
-
-            # Kolom 0: Mata Anggaran
-            item_ma = QTableWidgetItem(label)
-            item_ma.setBackground(QBrush(bg_clr))
-            item_ma.setForeground(QBrush(fg_clr))
-            item_ma.setFont(font_obj)
-            tbl.setItem(r_idx, 0, item_ma)
-
-            # Kolom Posisi
-            for c_i, p in enumerate(periodes):
-                val = values.get(p, 0)
-                if row_type == "header" or val == "":
-                    txt = ""
-                else:
-                    try:
-                        is_pct = '%' in label
-                        txt = f"{val * 100:,.2f}%" if is_pct else f"{val:,.0f}"
-                    except:
-                        txt = str(val)
-                it  = QTableWidgetItem(txt)
-                it.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-                it.setBackground(QBrush(bg_clr))
-                it.setForeground(QBrush(fg_clr))
-                it.setFont(font_obj)
-                tbl.setItem(r_idx, 1 + c_i, it)
-
-            # Growth columns
-            growth_start = n_p + 1
-            for gi, gv in enumerate([mtd_v, dtd_v, yoy_v, ytd_v]):
-                if row_type == "header" or gv == "":
-                    txt = ""
-                elif gv == 0:
-                    txt = "0"
-                else:
-                    try:
-                        txt = f"{gv:,.0f}"
-                    except:
-                        txt = str(gv)
-                it_g = QTableWidgetItem(txt)
-                it_g.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-                it_g.setBackground(QBrush(bg_clr))
-                # Warna font growth
-                if row_type not in ("header", "__section__"):
-                    is_negative = isinstance(gv, (int, float)) and gv < 0
-                    if is_negative:
-                        it_g.setForeground(QBrush(FONT_RED))
-                    elif row_type == "total":
-                        it_g.setForeground(QBrush(FONT_TOTAL))
-                    else:
-                        it_g.setForeground(QBrush(fg_clr))
-                it_g.setFont(font_obj)
-                tbl.setItem(r_idx, growth_start + gi, it_g)
-
-        lay.addWidget(tbl)
-        self._current_table = tbl
-        return w
-
-    # ── SEARCH ───────────────────────────────────────────────────
-    def _filter_rows(self, query: str):
-        q = query.strip().lower()
-        for i in range(self._tabs.count()):
-            widget = self._tabs.widget(i)
-            tbl    = widget.findChild(QTableWidget)
-            if not tbl:
-                continue
-            for r in range(tbl.rowCount()):
-                item = tbl.item(r, 0)
-                if item:
-                    visible = (not q) or (q in item.text().lower())
-                    tbl.setRowHidden(r, not visible)
-
-    # ── EXPORT ───────────────────────────────────────────────────
     def _export(self):
+        from ui.toast_notification import ToastManager
         if not self._data:
-            ToastManager.show(self.window(), "Tidak ada data untuk dieksport.", "warning")
+            ToastManager.show(self.window(), "Silakan Generate data terlebih dahulu.", "warning")
             return
-
+            
         from core.exporter import get_default_export_filename, get_unique_path
+        from PySide6.QtWidgets import QFileDialog
         import os
         from pathlib import Path
         
-        base_name = get_default_export_filename(self._data, "AH Gunsar")
+        base_name = get_default_export_filename(self._data, "KC AH Gunsar")
         downloads = str(Path.home() / "Downloads")
         default_path = get_unique_path(os.path.join(downloads, base_name))
         
         options = QFileDialog.Option.DontConfirmOverwrite
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export Excel", default_path,
+            self, "Export Excel Dashboard", default_path,
             "Excel Files (*.xlsx)", options=options)
             
         if not path:
@@ -471,55 +533,87 @@ class PreviewTableWidget(QWidget):
         except Exception as e:
             ToastManager.show(self.window(), f"Gagal export: {e}", "error")
 
-    def _export_sheet(self):
-        if not self._data:
-            ToastManager.show(self.window(), "Tidak ada data untuk dieksport.", "warning")
-            return
+    def _export_kcp(self):
+        """Export Dashboard KCP — membaca Nama Uker dari SSA, filter KCP."""
+        self._export_uker_common('KCP')
 
-        idx = self._tabs.currentIndex()
-        if idx < 0:
-            return
-            
-        kc_name = self._tabs.tabText(idx)
-        # Tab text is usually kc_short, we need to find the actual kc_name from data keys
-        actual_kc_name = kc_name
-        for k, v in self._data.items():
-            if v.get("kc_short", k)[:20] == kc_name:
-                actual_kc_name = k
-                break
+    def _export_unit(self):
+        """Export Dashboard Unit — membaca Nama Uker dari SSA, filter Unit."""
+        self._export_uker_common('Unit')
 
-        from core.exporter import get_default_export_filename, get_unique_path
+    def _export_produk(self):
+        """Export Monitoring Produk Dashboard."""
+        from ui.toast_notification import ToastManager
+        from PySide6.QtWidgets import QFileDialog
         import os
         from pathlib import Path
+
+        if not self._data:
+            ToastManager.show(self.window(),
+                              "Silakan Generate data terlebih dahulu.", "warning")
+            return
+
+        from core.exporter import get_default_export_filename, get_unique_path
         
-        base_name = get_default_export_filename(self._data, actual_kc_name)
+        # Buat nama file berdasarkan nama Dashboard
+        base_name = get_default_export_filename(self._data, "KC AH Gunsar")
+        base_name = base_name.replace("Dashboard KC", "Monitoring Produk Dashboard")
         downloads = str(Path.home() / "Downloads")
         default_path = get_unique_path(os.path.join(downloads, base_name))
-        
+
         options = QFileDialog.Option.DontConfirmOverwrite
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export Sheet", default_path,
+            self, "Export Excel Monitoring Produk", default_path,
             "Excel Files (*.xlsx)", options=options)
-            
+
         if not path:
             return
 
         try:
-            # Export ONLY the specific sheet
-            # So we create a dict with just this KC and any __stats__ if needed
-            export_data = {actual_kc_name: self._data[actual_kc_name]}
-            if "__stats__" in self._data:
-                export_data["__stats__"] = self._data["__stats__"]
-                
-            from core.exporter import export_to_excel
-            export_to_excel(export_data, path)
+            from core.exporter_produk import export_monitoring_produk_to_excel
+            export_monitoring_produk_to_excel(self._data, path)
+            from core.history_manager import mark_last_exported
+            mark_last_exported()
             ToastManager.show(self.window(),
-                              f"File berhasil disimpan: {path}", "success")
+                              f"Monitoring Produk berhasil disimpan: {path}", "success")
         except Exception as e:
-            ToastManager.show(self.window(), f"Gagal export: {e}", "error")
+            ToastManager.show(self.window(), f"Gagal export Monitoring Produk: {e}", "error")
 
-    # ── HELPERS ──────────────────────────────────────────────────
-    def _show_empty(self):
-        self._tabs.hide()
-        self._toolbar.hide()
-        self._empty.show()
+    def _export_uker_common(self, uker_type: str):
+        """Common handler untuk export KCP/Unit."""
+        from ui.toast_notification import ToastManager
+        from PySide6.QtWidgets import QFileDialog
+        import os
+        from pathlib import Path
+
+        if not self._data or '__uker_data__' not in self._data:
+            ToastManager.show(self.window(),
+                              "Silakan Generate ulang data terlebih dahulu.", "warning")
+            return
+
+        data_uker = self._data['__uker_data__']
+
+        # Buat nama file berdasarkan periode terbaru
+        from core.exporter_uker import get_filename_uker, export_uker_to_excel
+        from core.exporter import get_unique_path
+        base_name = get_filename_uker(data_uker, uker_type)
+        downloads = str(Path.home() / "Downloads")
+        default_path = get_unique_path(os.path.join(downloads, base_name))
+
+        options = QFileDialog.Option.DontConfirmOverwrite
+        path, _ = QFileDialog.getSaveFileName(
+            self, f"Export Excel Dashboard {uker_type}", default_path,
+            "Excel Files (*.xlsx)", options=options)
+
+        if not path:
+            return
+
+        try:
+            export_uker_to_excel(data_uker, path, uker_type)
+            from core.history_manager import mark_last_exported
+            mark_last_exported()
+            ToastManager.show(self.window(),
+                              f"Dashboard {uker_type} berhasil disimpan: {path}", "success")
+        except Exception as e:
+            ToastManager.show(self.window(), f"Gagal export {uker_type}: {e}", "error")
+
